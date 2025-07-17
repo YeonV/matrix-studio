@@ -42,18 +42,15 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop }: GridCellProps) => {
     setIsInteracting(true);
 
     if (activeTool === 'paint') {
-      // --- LOGIC CHANGE 1: DRAG PREPARATION IS NOW CONDITIONAL ---
-      // We only prepare a 'move' drag IF the clicked pixel is ALREADY selected.
       const isAlreadySelected = selection.includes(cellAtom);
       if (cellData.deviceId && isAlreadySelected) {
         setDragState({
           type: 'move',
           isDragging: false,
-          draggedAtoms: selection, // We drag the entire current selection
+          draggedAtoms: selection,
           draggedFrom: { r: rowIndex, c: colIndex },
         });
       } else if (!cellData.deviceId) {
-        // If the cell is empty, we still prepare a 'paint' drag.
         setCellData(brush);
         setDragState({
           type: 'paint',
@@ -81,25 +78,38 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop }: GridCellProps) => {
     setIsHovered(false);
   };
 
-  const handleMouseUp = () => {
-    // --- LOGIC CHANGE 2: MOUSEUP IS NOW SIMPLER AND MORE EXPLICIT ---
-    // First, check if a drag actually occurred.
+  const handleMouseUp = (e: React.MouseEvent) => {
+    // We now need the event object 'e' to check for the CTRL key.
     if (dragState?.isDragging) {
       if (dragState.type === 'move') {
         onDrop(rowIndex, colIndex);
       }
-      // No action needed for 'paint' drag on mouseup.
-      return; // The function is done if a drag happened.
+      return;
     }
-
-    // If we reach here, it was a CLICK, not a drag.
-    // Now we perform the selection logic.
+    
+    // If no drag occurred, this was a click.
     if (activeTool === 'paint' && cellData.deviceId) {
       const isAlreadySelected = selection.includes(cellAtom);
-      if (isAlreadySelected) {
-        setSelection([]); // A click on an already-selected pixel deselects it.
+
+      // --- LOGIC CHANGE: Check for CTRL key ---
+      if (e.ctrlKey) {
+        // --- Multi-select logic with CTRL key ---
+        if (isAlreadySelected) {
+          // Remove this pixel from the existing selection
+          setSelection(prev => prev.filter(atom => atom !== cellAtom));
+        } else {
+          // Add this pixel to the existing selection
+          setSelection(prev => [...prev, cellAtom]);
+        }
       } else {
-        setSelection([cellAtom]); // A click on an unselected pixel selects it.
+        // --- Single-select logic (no modifier) ---
+        if (isAlreadySelected) {
+          // A simple click on a selected pixel now deselects everything
+          setSelection([]);
+        } else {
+          // A simple click on an unselected pixel selects ONLY that pixel
+          setSelection([cellAtom]);
+        }
       }
     }
   };
@@ -112,7 +122,6 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop }: GridCellProps) => {
       return 'grabbing';
     }
     if (activeTool === 'paint') {
-      // Show the 'grab' hand only if the hovered pixel is part of the selection.
       if (cellData.deviceId && selection.includes(cellAtom)) {
         return 'grab';
       } else if (!cellData.deviceId) {
@@ -122,7 +131,6 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop }: GridCellProps) => {
     if (activeTool === 'erase') {
       return 'cell';
     }
-    // For unselected pixels in paint mode, use the default pointer.
     return 'default';
   };
 
@@ -131,7 +139,7 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop }: GridCellProps) => {
       onMouseDown={handleMouseDown}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onMouseUp={handleMouseUp}
+      onMouseUp={handleMouseUp} // Pass the event to the handler
       sx={{
         boxSizing: 'border-box',
         backgroundColor: showBackground ? 'rgba(0, 188, 212, 0.2)' : 'transparent',
