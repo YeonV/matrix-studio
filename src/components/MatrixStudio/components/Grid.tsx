@@ -25,15 +25,11 @@ export const Grid = () => {
 
   const handleValidateDrop = (targetR: number, targetC: number) => {
     if (!dragState || !dragState.draggedFrom) return;
-
     const { draggedAtoms, draggedFrom } = dragState;
     const deltaR = targetR - draggedFrom.r;
     const deltaC = targetC - draggedFrom.c;
-
     const draggedAtomsSet = new Set(draggedAtoms);
     const newDropPreview: { r: number; c: number; status: 'valid' | 'colliding' }[] = [];
-
-    // Build the detailed preview with status for each cell
     for (const atom of draggedAtoms) {
       let originalR = -1, originalC = -1;
       for (let r = 0; r < rows; r++) {
@@ -41,11 +37,9 @@ export const Grid = () => {
         if (c !== -1) { originalR = r; originalC = c; break; }
       }
       if (originalR === -1) continue;
-
       const newR = originalR + deltaR;
       const newC = originalC + deltaC;
       let status: 'valid' | 'colliding' = 'valid';
-
       if (newR < 0 || newR >= rows || newC < 0 || newC >= cols) {
         status = 'colliding';
       } else {
@@ -57,8 +51,6 @@ export const Grid = () => {
       }
       newDropPreview.push({ r: newR, c: newC, status });
     }
-    
-    // Determine the global collision state from the detailed preview
     const hasCollision = newDropPreview.some(p => p.status === 'colliding');
     setDragState(prev => (prev ? { ...prev, isCollision: hasCollision, dropPreview: newDropPreview } : null));
   };
@@ -104,12 +96,28 @@ export const Grid = () => {
 
   return (
     <Box onContextMenu={(e) => e.preventDefault()} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onMouseMove={handleMouseMove} sx={{ width: '100%', height: '100%', cursor: 'default', backgroundColor: '#111' }}>
-      <TransformWrapper limitToBounds={false} minScale={0.2} maxScale={8} panning={{ disabled: false }} wheel={{ step: 0.05 }}>
+      <TransformWrapper
+        limitToBounds={false}
+        minScale={0.2}
+        maxScale={8}
+        panning={{ disabled: false }}
+        wheel={{ step: 0.05 }}
+        doubleClick={{ disabled: true }} // <-- DISABLE DOUBLE-CLICK ZOOM
+      >
         <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
           <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 50px)`, gridTemplateRows: `repeat(${rows}, 50px)`, width: `${cols * 50}px`, height: `${rows * 50}px`, gap: '1px', userSelect: 'none' }}>
-            {pixelGrid.map((row, r) => row.map((cellAtom, c) => (
-              <GridCell key={`${r}-${c}`} cellAtom={cellAtom} rowIndex={r} colIndex={c} onDrop={handleCellDrop} onValidateDrop={handleValidateDrop} />
-            )))}
+            {pixelGrid.map((row, r) =>
+              row.map((cellAtom, c) => (
+                <GridCell
+                  key={`${r}-${c}`}
+                  cellAtom={cellAtom}
+                  rowIndex={r}
+                  colIndex={c}
+                  onDrop={handleCellDrop}
+                  onValidateDrop={handleValidateDrop}
+                />
+              ))
+            )}
           </Box>
         </TransformComponent>
       </TransformWrapper>

@@ -1,14 +1,13 @@
-// src/components/MatrixStudio/components/MStudioControls.tsx
-
 import { useAtom } from 'jotai';
 import { Box, IconButton, Stack, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
 import { Undo, Redo, Brush, RectangleOutlined } from '@mui/icons-material';
 import { activeToolAtom } from '../atoms';
 import { useMatrixEditorContext } from '../MatrixStudioContext';
-// The SelectionDetails import has been removed.
+import { BrushSettings } from './BrushSettings'; // <-- IMPORT
 
 export const MStudioControls = () => {
   const { canUndo, undo, canRedo, redo } = useMatrixEditorContext();
+  // We need both read and write access for the ToggleButtonGroup
   const [activeTool, setActiveTool] = useAtom(activeToolAtom);
 
   const handleToolChange = (event: React.MouseEvent<HTMLElement>, newTool: 'paint' | 'erase' | null) => {
@@ -18,8 +17,7 @@ export const MStudioControls = () => {
   };
 
   return (
-    // The main Stack no longer has flexGrow styling
-    <Stack sx={{ p: 2 }} spacing={2}>
+    <Stack sx={{ p: 2, height: '100%' }} spacing={2}>
       {/* Undo/Redo Section */}
       <Box>
         <Tooltip title="Undo (Ctrl+Z)">
@@ -59,7 +57,9 @@ export const MStudioControls = () => {
         </ToggleButtonGroup>
       </Box>
       
-      {/* The SelectionDetails component has been removed from here. */}
+      {/* --- Conditionally render the Brush Settings --- */}
+      {activeTool === 'paint' && <BrushSettings />}
+
     </Stack>
   );
 };

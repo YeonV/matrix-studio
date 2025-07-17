@@ -26,7 +26,7 @@ const MatrixStudioCore = (props: MatrixStudioProps) => {
       {/* This is now a 3-column (or 2-column) layout */}
       <Stack direction="row" sx={{ height: '100%', width: '100%' }}>
         {/* --- Column 1: Left Toolbar --- */}
-        <Box sx={{ width: 80, borderRight: 1, borderColor: 'divider', flexShrink: 0 }}>
+        <Box sx={{ width: 240, borderRight: 1, borderColor: 'divider', flexShrink: 0 }}>
           <MStudioControls />
         </Box>
 
