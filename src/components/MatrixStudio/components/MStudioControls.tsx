@@ -1,8 +1,11 @@
+// src/components/MatrixStudio/components/MStudioControls.tsx
+
 import { useAtom } from 'jotai';
 import { Box, IconButton, Stack, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
 import { Undo, Redo, Brush, RectangleOutlined } from '@mui/icons-material';
 import { activeToolAtom } from '../atoms';
-import { useMatrixEditorContext } from '../MatrixStudioContext'; // We will create this next
+import { useMatrixEditorContext } from '../MatrixStudioContext';
+// The SelectionDetails import has been removed.
 
 export const MStudioControls = () => {
   const { canUndo, undo, canRedo, redo } = useMatrixEditorContext();
@@ -15,7 +18,8 @@ export const MStudioControls = () => {
   };
 
   return (
-    <Stack sx={{ p: 2, height: '100%' }} spacing={2}>
+    // The main Stack no longer has flexGrow styling
+    <Stack sx={{ p: 2 }} spacing={2}>
       {/* Undo/Redo Section */}
       <Box>
         <Tooltip title="Undo (Ctrl+Z)">
@@ -49,12 +53,13 @@ export const MStudioControls = () => {
           </ToggleButton>
           <ToggleButton value="erase" aria-label="erase tool">
             <Tooltip title="Erase" placement="right">
-              {/* Using a generic icon for eraser */}
-              <RectangleOutlined /> 
+              <RectangleOutlined />
             </Tooltip>
           </ToggleButton>
         </ToggleButtonGroup>
       </Box>
+      
+      {/* The SelectionDetails component has been removed from here. */}
     </Stack>
   );
 };

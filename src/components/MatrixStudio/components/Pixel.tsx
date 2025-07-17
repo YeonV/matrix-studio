@@ -1,19 +1,23 @@
+// src/components/MatrixStudio/components/Pixel.tsx
+
 import { useAtomValue } from 'jotai';
 import { Box, Typography, useTheme } from '@mui/material';
-import type { CellAtom } from '../atoms';
+import { type CellAtom, selectionAtom, dragStateAtom } from '../atoms'; // Import dragStateAtom
 
-// The props are now extremely simple. It just needs its own atom.
 interface PixelProps {
   cellAtom: CellAtom;
 }
 
 export const Pixel = ({ cellAtom }: PixelProps) => {
   const theme = useTheme();
-  // We use useAtomValue because this component only ever READS the state.
-  // The painting logic will handle writing to the atom.
   const cellData = useAtomValue(cellAtom);
+  const selection = useAtomValue(selectionAtom);
+  const dragState = useAtomValue(dragStateAtom);
 
-  // TODO: We will add dynamic highlighting and opacity styles here later.
+  const isSelected = selection.includes(cellAtom);
+  // A pixel is "ghosted" if it's part of an active 'move' operation.
+  const isGhosted = dragState?.type === 'move' && dragState.isDragging && dragState.draggedAtoms.includes(cellAtom);
+
   const dynamicStyles = {
     display: 'flex',
     flexDirection: 'column',
@@ -21,11 +25,15 @@ export const Pixel = ({ cellAtom }: PixelProps) => {
     alignItems: 'center',
     width: '100%',
     height: '100%',
-    border: `1px solid ${theme.palette.divider}`,
     borderRadius: '4px',
     boxSizing: 'border-box',
     transition: 'all 0.1s ease-in-out',
-    backgroundColor: cellData.deviceId ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+    border: isSelected ? `2px solid ${theme.palette.primary.main}` : `1px solid ${theme.palette.divider}`,
+    backgroundColor: isSelected ? theme.palette.action.selected : (cellData.deviceId ? 'rgba(255, 255, 255, 0.1)' : 'transparent'),
+    transform: isSelected ? 'scale(1.05)' : 'scale(1)',
+    zIndex: isSelected ? 1 : 0,
+    // Apply the ghosting effect
+    opacity: isGhosted ? 0.3 : 1,
   };
 
   return (

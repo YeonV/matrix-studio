@@ -1,98 +1,114 @@
+// src/components/MatrixStudio/components/Grid.tsx
+
 import { Box } from '@mui/material';
 import { useAtom, useSetAtom, useAtomValue } from 'jotai';
-import { pixelGridHistoryAtom, isPaintingAtom, brushAtom, activeToolAtom } from '../atoms';
-import type { CellAtom } from '../atoms';
-import { Pixel } from './Pixel';
+import {
+  pixelGridTargetAtom,
+  isInteractingAtom,
+  dragStateAtom,
+  createCellAtom,
+  type CellAtom,
+} from '../atoms';
 import { MCell } from '../MatrixStudio.types';
-
-// This component is now correct and self-contained.
-const GridCell = ({ cellAtom }: { cellAtom: CellAtom }) => {
-  const [cellData, setCellData] = useAtom(cellAtom);
-  const [isPainting] = useAtom(isPaintingAtom);
-  const [brush] = useAtom(brushAtom);
-  const [activeTool] = useAtom(activeToolAtom);
-
-  const applyTool = () => {
-    if (activeTool === 'paint' && cellData.deviceId === '') {
-      setCellData(brush);
-    } else if (activeTool === 'erase' && cellData.deviceId !== '') {
-      setCellData(MCell);
-    }
-  };
-
-  const handleMouseDown = () => {
-    // We don't need to set isPainting here, the parent Grid will handle it.
-    applyTool();
-  };
-
-  const handleMouseEnter = () => {
-    if (isPainting) {
-      applyTool();
-    }
-  };
-
-  return (
-    <Box
-      onMouseDown={handleMouseDown}
-      onMouseEnter={handleMouseEnter}
-      sx={{
-        backgroundColor: '#222',
-        cursor: 'crosshair',
-      }}
-    >
-      <Pixel cellAtom={cellAtom} />
-    </Box>
-  );
-};
-
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import GridCell from './GridCell';
 
 export const Grid = () => {
-  // --- THE FIX ---
-  // We get the grid of atoms from the HISTORY atom, not the target atom.
-  const gridHistory = useAtomValue(pixelGridHistoryAtom);
-  const pixelGrid = [...gridHistory.values()][0] || [];
-
-  // We get the setter for the isPainting state.
-  const setIsPainting = useSetAtom(isPaintingAtom);
-
-  // We need to wrap the mouse down handler to set the global painting state.
-  const handleMouseDown = () => {
-    setIsPainting(true);
-  };
-
-  const handleMouseUp = () => {
-    setIsPainting(false);
-  };
+  const setPixelGrid = useSetAtom(pixelGridTargetAtom);
+  const setIsInteracting = useSetAtom(isInteractingAtom);
+  const [dragState, setDragState] = useAtom(dragStateAtom);
+  const pixelGrid = useAtomValue(pixelGridTargetAtom);
 
   const rows = pixelGrid.length;
   const cols = pixelGrid[0]?.length || 0;
 
-  if (rows === 0 || cols === 0) {
-    return null; 
-  }
+  const handleCellDrop = (dropTargetR: number, dropTargetC: number) => {
+    if (!dragState || !dragState.isDragging || !dragState.draggedFrom) return;
+
+    const { draggedAtoms, draggedFrom } = dragState;
+    const deltaR = dropTargetR - draggedFrom.r;
+    const deltaC = dropTargetC - draggedFrom.c;
+
+    setPixelGrid(grid => {
+      const positions: { r: number, c: number, atom: CellAtom }[] = [];
+      grid.forEach((row, r) => {
+        row.forEach((atom, c) => {
+          if (draggedAtoms.includes(atom)) {
+            positions.push({ r, c, atom });
+          }
+        });
+      });
+
+      const nextGrid = grid.map(r => [...r]);
+
+      for (const pos of positions) {
+        nextGrid[pos.r][pos.c] = createCellAtom(MCell);
+      }
+
+      for (const pos of positions) {
+        const newR = pos.r + deltaR;
+        const newC = pos.c + deltaC;
+
+        if (newR >= 0 && newR < rows && newC >= 0 && newC < cols) {
+          nextGrid[newR][newC] = pos.atom;
+        }
+      }
+      return nextGrid;
+    });
+  };
+  
+  // --- CURSOR LOGIC FOR PANNING ---
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    // On right-click, set the cursor to 'grabbing' for pan feedback
+    if (e.button === 2) {
+      e.currentTarget.style.cursor = 'grabbing';
+    }
+  };
+
+  const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Always reset cursor to default on mouse up
+    e.currentTarget.style.cursor = 'default';
+    setIsInteracting(false);
+    setDragState(null);
+  };
+  // --- END CURSOR LOGIC ---
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (dragState && !dragState.isDragging && e.buttons === 1) {
+      setDragState({ ...dragState, isDragging: true });
+    }
+  };
 
   return (
     <Box
-      onMouseDown={handleMouseDown} // Start painting when mouse is down anywhere on the grid
-      onMouseUp={handleMouseUp}
+      onContextMenu={(e) => e.preventDefault()}
+      onMouseDown={handleMouseDown} // <-- Updated handler
+      onMouseUp={handleMouseUp}       // <-- Updated handler
       onMouseLeave={handleMouseUp}
-      sx={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(${cols}, 1fr)`,
-        gridTemplateRows: `repeat(${rows}, 1fr)`,
-        width: '100%',
-        height: '100%',
-        border: `1px solid #444`,
-        backgroundColor: '#111',
-        gap: '1px',
-        userSelect: 'none',
-      }}
+      onMouseMove={handleMouseMove}
+      sx={{ width: '100%', height: '100%', cursor: 'default', backgroundColor: '#111' }}
     >
-      {pixelGrid.map((row, rowIndex) =>
-        row.map((cellAtom, colIndex) => (
-          <GridCell key={`${rowIndex}-${colIndex}`} cellAtom={cellAtom} />
-        ))
-      )}
+      <TransformWrapper limitToBounds={false} minScale={0.2} maxScale={8} panning={{ disabled: false }} wheel={{ step: 0.05 }}>
+        <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(${cols}, 50px)`,
+              gridTemplateRows: `repeat(${rows}, 50px)`,
+              width: `${cols * 50}px`,
+              height: `${rows * 50}px`,
+              gap: '1px',
+              userSelect: 'none',
+            }}
+          >
+            {pixelGrid.map((row, r) =>
+              row.map((cellAtom, c) => (
+                <GridCell key={`${r}-${c}`} cellAtom={cellAtom} rowIndex={r} colIndex={c} onDrop={handleCellDrop} />
+              ))
+            )}
+          </Box>
+        </TransformComponent>
+      </TransformWrapper>
     </Box>
   );
 };
