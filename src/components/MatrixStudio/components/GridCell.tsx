@@ -1,7 +1,7 @@
 // src/components/MatrixStudio/components/GridCell.tsx
 
-import { useState } from 'react';
 import { useAtom, useSetAtom, useAtomValue } from 'jotai';
+import { useTheme } from '@mui/material/styles'; // <-- IMPORT useTheme
 import {
   activeToolAtom,
   isInteractingAtom,
@@ -23,7 +23,7 @@ interface GridCellProps {
   rowIndex: number;
   colIndex: number;
   onDrop: (r: number, c: number) => void;
-  onValidateDrop: (r: number, c: number) => void; // <-- RE-ADD VALIDATION PROP
+  onValidateDrop: (r: number, c: number) => void;
 }
 
 const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: GridCellProps) => {
@@ -34,13 +34,12 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
   const isInteracting = useAtomValue(isInteractingAtom);
   const brush = useAtomValue(brushAtom);
   const setIsInteracting = useSetAtom(isInteractingAtom);
-  const [isHovered, setIsHovered] = useState(false);
+  const theme = useTheme(); // Get the theme for colors
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     e.stopPropagation();
     setIsInteracting(true);
-
     if (activeTool === 'paint') {
       const isAlreadySelected = selection.includes(cellAtom);
       if (cellData.deviceId && isAlreadySelected) {
@@ -49,11 +48,19 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
           isDragging: false,
           draggedAtoms: selection,
           draggedFrom: { r: rowIndex, c: colIndex },
-          isCollision: false, // Initialize collision state
+          isCollision: false,
+          dropPreview: [],
         });
       } else if (!cellData.deviceId) {
         setCellData(brush);
-        setDragState({ type: 'paint', isDragging: false, draggedAtoms: [], draggedFrom: null, isCollision: false });
+        setDragState({
+          type: 'paint',
+          isDragging: false,
+          draggedAtoms: [],
+          draggedFrom: null,
+          isCollision: false,
+          dropPreview: [],
+        });
       }
     } else if (activeTool === 'erase') {
       if (cellData.deviceId) setCellData(MCell);
@@ -61,22 +68,15 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
   };
 
   const handleMouseEnter = () => {
-    setIsHovered(true);
-    // When entering a cell during a move, trigger the validation from the parent
     if (dragState?.type === 'move' && dragState.isDragging) {
       onValidateDrop(rowIndex, colIndex);
     }
-    // Continue with paint/erase logic
     if (!isInteracting) return;
     if (dragState?.type === 'paint' && !cellData.deviceId) {
       setCellData(brush);
     } else if (activeTool === 'erase' && cellData.deviceId) {
       setCellData(MCell);
     }
-  };
-
-  const handleMouseLeave = () => {
-    setIsHovered(false);
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
@@ -86,28 +86,49 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
       }
       return;
     }
-    
-    // This is the correct, refined selection logic from the last step
-    if (activeTool === 'paint') {
-      if (dragState?.type === 'move') {
-        if (e.ctrlKey) {
+    if (activeTool === 'paint' && cellData.deviceId) {
+      const isAlreadySelected = selection.includes(cellAtom);
+      if (e.ctrlKey) {
+        if (isAlreadySelected) {
           setSelection(prev => prev.filter(atom => atom !== cellAtom));
         } else {
-          setSelection([]);
-        }
-      } else if (!dragState && cellData.deviceId) {
-        if (e.ctrlKey) {
           setSelection(prev => [...prev, cellAtom]);
+        }
+      } else {
+        if (isAlreadySelected) {
+          setSelection([]);
         } else {
           setSelection([cellAtom]);
         }
       }
     }
   };
-  
-  // Visuals now correctly use the collision state
-  const isPotentialDropTarget = dragState?.type === 'move' && dragState.isDragging && !dragState.isCollision;
-  const showBackground = isPotentialDropTarget && isHovered;
+
+  // --- UPDATED VISUALS LOGIC ---
+  const previewInfo =
+    dragState?.type === 'move' && dragState.isDragging
+      ? dragState.dropPreview.find(p => p.r === rowIndex && p.c === colIndex)
+      : null;
+
+  const getHighlightStyle = () => {
+    if (!previewInfo) return {}; // No highlight
+
+    if (previewInfo.status === 'valid') {
+      return {
+        backgroundColor: 'rgba(0, 188, 212, 0.2)', // Cyan for valid
+        border: `1px dashed ${theme.palette.primary.main}`,
+      };
+    }
+    
+    if (previewInfo.status === 'colliding') {
+      return {
+        backgroundColor: `rgba(${theme.palette.error.main} / 0.2)`, // Red for collision
+        border: `1px dashed ${theme.palette.error.main}`,
+      };
+    }
+    
+    return {};
+  };
 
   const getCursor = () => {
     if (dragState?.type === 'move' && dragState.isDragging) {
@@ -130,14 +151,12 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
     <Box
       onMouseDown={handleMouseDown}
       onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
       onMouseUp={handleMouseUp}
       sx={{
         boxSizing: 'border-box',
-        backgroundColor: showBackground ? 'rgba(0, 188, 212, 0.2)' : 'transparent',
-        border: isPotentialDropTarget ? `1px dashed #00bcd4` : 'none',
-        transition: 'background-color 0.1s ease-in-out',
+        transition: 'background-color 0.1s ease-in-out, border 0.1s ease-in-out',
         cursor: getCursor(),
+        ...getHighlightStyle(), // Apply the dynamic highlight
       }}
     >
       <Pixel cellAtom={cellAtom} />
