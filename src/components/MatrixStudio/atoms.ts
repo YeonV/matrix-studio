@@ -1,20 +1,28 @@
 import { atom } from 'jotai';
+import { withHistory } from 'jotai-history';
 import type { IMCell } from './MatrixStudio.types';
 import { MCell } from './MatrixStudio.types';
 
 export const createCellAtom = (initialValue: IMCell = MCell) => atom(initialValue);
 export type CellAtom = ReturnType<typeof createCellAtom>;
 
-// ONE SINGLE ATOM. That's it. No history, no targets.
-export const pixelGridAtom = atom<CellAtom[][]>([]);
+// The raw data atom
+export const pixelGridTargetAtom = atom<CellAtom[][]>([]);
 
-// 1. The "Brush" Atom: Holds the data we want to paint onto cells.
-// For now, it's a hardcoded dummy pixel. Later, a UI panel will update this atom.
+// The history-aware wrapper
+export const pixelGridHistoryAtom = withHistory(pixelGridTargetAtom, 20);
+
+// --- Tool State Atoms ---
+export type EditorTool = 'paint' | 'erase';
+export const activeToolAtom = atom<EditorTool>('paint');
+
+// The brush atom for painting
 export const brushAtom = atom<IMCell>({
   deviceId: 'paint-brush',
   pixel: 1,
   group: 'painted-group',
 });
 
-// 2. The Painting State Atom: Tracks if the user is actively painting (mouse button is down).
+// --- THIS WAS MISSING ---
+// The Painting State Atom: Tracks if the user is actively painting.
 export const isPaintingAtom = atom<boolean>(false);

@@ -1,30 +1,33 @@
 import { Box } from '@mui/material';
-import { useAtom, useSetAtom } from 'jotai';
-import { pixelGridAtom, isPaintingAtom, brushAtom } from '../atoms';
+import { useAtom, useSetAtom, useAtomValue } from 'jotai';
+import { pixelGridHistoryAtom, isPaintingAtom, brushAtom, activeToolAtom } from '../atoms';
 import type { CellAtom } from '../atoms';
 import { Pixel } from './Pixel';
+import { MCell } from '../MatrixStudio.types';
 
-// This is a new component for a single interactive cell.
-// It encapsulates the paint logic for one cell.
+// This component is now correct and self-contained.
 const GridCell = ({ cellAtom }: { cellAtom: CellAtom }) => {
   const [cellData, setCellData] = useAtom(cellAtom);
-  const [isPainting, setIsPainting] = useAtom(isPaintingAtom);
+  const [isPainting] = useAtom(isPaintingAtom);
   const [brush] = useAtom(brushAtom);
+  const [activeTool] = useAtom(activeToolAtom);
 
-  const handleMouseDown = () => {
-    // Start painting when the user clicks down
-    setIsPainting(true);
-    // Paint the first cell immediately if it's empty
-    if (cellData.deviceId === '') {
+  const applyTool = () => {
+    if (activeTool === 'paint' && cellData.deviceId === '') {
       setCellData(brush);
+    } else if (activeTool === 'erase' && cellData.deviceId !== '') {
+      setCellData(MCell);
     }
   };
 
+  const handleMouseDown = () => {
+    // We don't need to set isPainting here, the parent Grid will handle it.
+    applyTool();
+  };
+
   const handleMouseEnter = () => {
-    // If the mouse enters this cell AND we are in painting mode...
-    if (isPainting && cellData.deviceId === '') {
-      // ...paint this cell.
-      setCellData(brush);
+    if (isPainting) {
+      applyTool();
     }
   };
 
@@ -34,7 +37,7 @@ const GridCell = ({ cellAtom }: { cellAtom: CellAtom }) => {
       onMouseEnter={handleMouseEnter}
       sx={{
         backgroundColor: '#222',
-        cursor: 'crosshair', // Give the user feedback that they can paint
+        cursor: 'crosshair',
       }}
     >
       <Pixel cellAtom={cellAtom} />
@@ -44,10 +47,18 @@ const GridCell = ({ cellAtom }: { cellAtom: CellAtom }) => {
 
 
 export const Grid = () => {
-  const [pixelGrid] = useAtom(pixelGridAtom);
-  // We need a global mouse up handler to stop painting
-  // even if the user releases the mouse outside the grid.
+  // --- THE FIX ---
+  // We get the grid of atoms from the HISTORY atom, not the target atom.
+  const gridHistory = useAtomValue(pixelGridHistoryAtom);
+  const pixelGrid = [...gridHistory.values()][0] || [];
+
+  // We get the setter for the isPainting state.
   const setIsPainting = useSetAtom(isPaintingAtom);
+
+  // We need to wrap the mouse down handler to set the global painting state.
+  const handleMouseDown = () => {
+    setIsPainting(true);
+  };
 
   const handleMouseUp = () => {
     setIsPainting(false);
@@ -62,8 +73,9 @@ export const Grid = () => {
 
   return (
     <Box
+      onMouseDown={handleMouseDown} // Start painting when mouse is down anywhere on the grid
       onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp} // Also stop painting if the mouse leaves the grid area
+      onMouseLeave={handleMouseUp}
       sx={{
         display: 'grid',
         gridTemplateColumns: `repeat(${cols}, 1fr)`,
@@ -73,7 +85,6 @@ export const Grid = () => {
         border: `1px solid #444`,
         backgroundColor: '#111',
         gap: '1px',
-        // Prevent text selection while dragging
         userSelect: 'none',
       }}
     >

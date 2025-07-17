@@ -1,34 +1,35 @@
-import { useEffect, useState } from 'react';
-import { useAtom } from 'jotai';
+import { useEffect } from 'react';
+import { useSetAtom, useAtomValue } from 'jotai';
+import { UNDO, REDO, RESET } from 'jotai-history';
 import type { MatrixStudioProps } from './MatrixStudio.types';
-import { pixelGridAtom, createCellAtom } from './atoms';
-
-// src/components/MatrixStudio/useMatrixStudio.ts
+import { pixelGridHistoryAtom, pixelGridTargetAtom, createCellAtom } from './atoms';
 
 export const useMatrixStudio = (props: MatrixStudioProps) => {
-  // We now manage rows and cols state INSIDE the hook
-  const [rows, setRows] = useState(props.rows || 16);
-  const [cols, setCols] = useState(props.cols || 20);
-  
-  const [grid, setGrid] = useAtom(pixelGridAtom);
+  const { initialData, rows = 16, cols = 20 } = props;
 
-  // The effect now also updates the internal dimension state
+  const setPixelGrid = useSetAtom(pixelGridTargetAtom);
+  const setHistory = useSetAtom(pixelGridHistoryAtom);
+  const gridHistory = useAtomValue(pixelGridHistoryAtom);
+  const currentGrid = useAtomValue(pixelGridTargetAtom);
+
   useEffect(() => {
-    setRows(props.rows || 16);
-    setCols(props.cols || 20);
-    
-    const newGrid = Array.from({ length: props.rows || 16 }, (_, r) =>
-      Array.from({ length: props.cols || 20 }, (_, c) => {
-        const cellData = props.initialData?.[r]?.[c];
+    const newGrid = Array.from({ length: rows }, (_, r: number) =>
+      Array.from({ length: cols }, (_, c: number) => {
+        const cellData = initialData?.[r]?.[c];
         return createCellAtom(cellData);
       })
     );
-    setGrid(newGrid);
-  }, [props.rows, props.cols, props.initialData, setGrid]);
+    setPixelGrid(newGrid);
+    setHistory(RESET);
+  }, [rows, cols, initialData, setPixelGrid, setHistory]);
 
   return {
-    gridForRender: grid,
-    rows, // <-- EXPOSE ROWS
-    cols, // <-- EXPOSE COLS
+    rows,
+    cols,
+    gridForRender: currentGrid,
+    undo: () => setHistory(UNDO),
+    redo: () => setHistory(REDO),
+    canUndo: gridHistory.canUndo,
+    canRedo: gridHistory.canRedo,
   };
 };
