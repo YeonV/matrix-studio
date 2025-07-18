@@ -1,19 +1,24 @@
+// src/App.tsx
+
 import { useState } from 'react';
 import { Box } from '@mui/material';
 import { MatrixStudio } from '@/components/MatrixStudio/MatrixStudio';
-import { DevControls } from '@/components/DevControls'; // Import the new component
 import type { IMCell } from '@/components/MatrixStudio/MatrixStudio.types';
+import { DevControls } from '@/components/DevControls';
 
-const emptyLayoutTemplate: IMCell[][] = [];
 const simpleLayoutTemplate: IMCell[][] = [
   [{ deviceId: 'dev-1', pixel: 0, group: 'group-1' }, { deviceId: 'dev-1', pixel: 1, group: 'group-1' }],
   [{ deviceId: '', pixel: 0, group: '' }, { deviceId: 'dev-1', pixel: 2, group: 'group-1' }],
 ];
+const emptyLayoutTemplate: IMCell[][] = [];
+
+// --- DEFINE THE EXTERNAL DEVICE LIST ---
+const availableDevices = ['wled-strip-1', 'wled-strip-2', 'dev-1', 'main-matrix'];
 
 function App() {
   const [matrixData, setMatrixData] = useState<IMCell[][]>(() => JSON.parse(JSON.stringify(simpleLayoutTemplate)));
   const [rows, setRows] = useState(16);
-  const [cols, setCols] = useState(20);
+  const [cols, setCols] = useState(20); 
 
   const handleSave = (data: IMCell[][]) => {
     console.log("SAVED DATA:", data);
@@ -33,17 +38,15 @@ function App() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: '#121212' }}>
-      <DevControls
-        onLoadEmpty={handleLoadEmpty}
-        onLoadSimple={handleLoadSimple}
-      />
+      <DevControls onLoadEmpty={handleLoadEmpty} onLoadSimple={handleLoadSimple} />
       <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
         <MatrixStudio
-          key={`${rows}-${cols}-${JSON.stringify(matrixData)}`}
+          key={`${rows}-${cols}-${JSON.stringify(matrixData)}`} 
           initialData={matrixData}
           rows={rows}
           cols={cols}
           onSave={handleSave}
+          deviceList={availableDevices}
         />
       </Box>
     </Box>

@@ -4,16 +4,11 @@ import { useAtom, useAtomValue } from 'jotai';
 import { Box, Stack, TextField, Typography } from '@mui/material';
 import { selectionAtom, type CellAtom } from '../atoms';
 
-// The SinglePixelEditor sub-component remains unchanged.
 const SinglePixelEditor = ({ cellAtom }: { cellAtom: CellAtom }) => {
   const [cellData, setCellData] = useAtom(cellAtom);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setCellData(prev => ({
-      ...prev,
-      [name]: name === 'pixel' ? parseInt(value, 10) || 0 : value,
-    }));
+  const handleChange = (field: string, value: string | number) => {
+    setCellData(prev => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -22,7 +17,7 @@ const SinglePixelEditor = ({ cellAtom }: { cellAtom: CellAtom }) => {
         label="Device ID"
         name="deviceId"
         value={cellData.deviceId}
-        onChange={handleChange}
+        disabled
         variant="filled"
         size="small"
         fullWidth
@@ -32,7 +27,7 @@ const SinglePixelEditor = ({ cellAtom }: { cellAtom: CellAtom }) => {
         name="pixel"
         type="number"
         value={cellData.pixel}
-        onChange={handleChange}
+        onChange={(e) => handleChange('pixel', parseInt(e.target.value, 10) || 0)}
         variant="filled"
         size="small"
         fullWidth
@@ -41,7 +36,7 @@ const SinglePixelEditor = ({ cellAtom }: { cellAtom: CellAtom }) => {
         label="Group"
         name="group"
         value={cellData.group || ''}
-        onChange={handleChange}
+        onChange={(e) => handleChange('group', e.target.value)}
         variant="filled"
         size="small"
         fullWidth
@@ -50,34 +45,19 @@ const SinglePixelEditor = ({ cellAtom }: { cellAtom: CellAtom }) => {
   );
 };
 
-// The main component is now simplified for its new role.
 export const SelectionDetails = () => {
   const selection = useAtomValue(selectionAtom);
-
   const hasSingleSelection = selection.length === 1;
   const hasMultipleSelection = selection.length > 1;
 
   return (
-    // This is now a simple padded container.
     <Box sx={{ p: 2 }}>
       <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
         Selection Details
       </Typography>
-
       {hasSingleSelection && <SinglePixelEditor cellAtom={selection[0]} />}
-
-      {hasMultipleSelection && (
-        <Typography variant="body2" color="text.secondary">
-          {selection.length} pixels selected.
-        </Typography>
-      )}
-
-      {/* This case is technically handled by the parent hiding the whole panel, but it's good practice to keep it. */}
-      {!hasSingleSelection && !hasMultipleSelection && (
-        <Typography variant="body2" color="text.secondary">
-          No selection.
-        </Typography>
-      )}
+      {hasMultipleSelection && <Typography variant="body2" color="text.secondary">{selection.length} pixels selected.</Typography>}
+      {!hasSingleSelection && !hasMultipleSelection && <Typography variant="body2" color="text.secondary">No selection.</Typography>}
     </Box>
   );
 };

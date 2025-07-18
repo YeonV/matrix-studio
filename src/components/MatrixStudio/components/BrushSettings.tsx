@@ -1,18 +1,21 @@
 // src/components/MatrixStudio/components/BrushSettings.tsx
 
 import { useAtom } from 'jotai';
-import { Box, Divider, Stack, TextField, Typography, InputAdornment, IconButton, Tooltip } from '@mui/material';
-import { DynamicFeed, Exposure } from '@mui/icons-material';
+import { Box, Divider, Stack, TextField, Typography, InputAdornment, IconButton, Tooltip, Autocomplete } from '@mui/material';
+import { Exposure, DynamicFeed } from '@mui/icons-material';
 import { brushAtom, isPixelAutoIncrementAtom, isGroupAutoIncrementAtom } from '../atoms';
+import { useMatrixEditorContext } from '../MatrixStudioContext'; // Import context hook
 
 export const BrushSettings = () => {
   const [brushData, setBrushData] = useAtom(brushAtom);
   const [isPixelIncrement, setIsPixelIncrement] = useAtom(isPixelAutoIncrementAtom);
   const [isGroupIncrement, setIsGroupIncrement] = useAtom(isGroupAutoIncrementAtom);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setBrushData(prev => ({ ...prev, [name]: name === 'pixel' ? parseInt(value, 10) || 0 : value }));
+  // Get the device list from the context
+  const { deviceList } = useMatrixEditorContext();
+
+  const handleBrushChange = (field: string, value: string | number) => {
+    setBrushData(prev => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -22,21 +25,33 @@ export const BrushSettings = () => {
         Brush Settings
       </Typography>
       <Stack spacing={2}>
-        <TextField
-          label="Device ID"
-          name="deviceId"
+        <Autocomplete
+          freeSolo
+          options={deviceList}
           value={brushData.deviceId}
-          onChange={handleChange}
-          variant="filled"
-          size="small"
-          fullWidth
+          // This handles both selecting an option and typing a new value
+          onChange={(event, newValue) => {
+            handleBrushChange('deviceId', newValue || '');
+          }}
+          // This ensures the atom updates as you type
+          onInputChange={(event, newInputValue) => {
+            handleBrushChange('deviceId', newInputValue);
+          }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Device ID"
+              variant="filled"
+              size="small"
+            />
+          )}
         />
         <TextField
           label="Pixel #"
           name="pixel"
           type="number"
           value={brushData.pixel}
-          onChange={handleChange}
+          onChange={(e) => handleBrushChange('pixel', parseInt(e.target.value, 10) || 0)}
           variant="filled"
           size="small"
           fullWidth
@@ -56,7 +71,7 @@ export const BrushSettings = () => {
           label="Group"
           name="group"
           value={brushData.group || ''}
-          onChange={handleChange}
+          onChange={(e) => handleBrushChange('group', e.target.value)}
           variant="filled"
           size="small"
           fullWidth

@@ -1,3 +1,5 @@
+// src/components/MatrixStudio/useMatrixStudio.ts
+
 import { useEffect } from 'react';
 import { useSetAtom, useAtomValue } from 'jotai';
 import { UNDO, REDO, RESET } from 'jotai-history';
@@ -5,7 +7,7 @@ import type { MatrixStudioProps } from './MatrixStudio.types';
 import { pixelGridHistoryAtom, pixelGridTargetAtom, createCellAtom } from './atoms';
 
 export const useMatrixStudio = (props: MatrixStudioProps) => {
-  const { initialData, rows = 16, cols = 20 } = props;
+  const { initialData, rows = 16, cols = 20, deviceList = [] } = props;
 
   const setPixelGrid = useSetAtom(pixelGridTargetAtom);
   const setHistory = useSetAtom(pixelGridHistoryAtom);
@@ -31,5 +33,6 @@ export const useMatrixStudio = (props: MatrixStudioProps) => {
     redo: () => setHistory(REDO),
     canUndo: gridHistory.canUndo,
     canRedo: gridHistory.canRedo,
+    deviceList,
   };
 };

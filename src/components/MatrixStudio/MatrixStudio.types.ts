@@ -15,4 +15,5 @@ export interface MatrixStudioProps {
   initialData?: IMCell[][];
   onSave?: (data: IMCell[][]) => void;
   onChange?: (data: IMCell[][]) => void;
+  deviceList?: string[]; 
 }
