@@ -16,16 +16,22 @@ export const activeToolAtom = atom<EditorTool>('paint');
 
 export const isInteractingAtom = atom<boolean>(false);
 
-export const brushAtom = atom<IMCell>({ deviceId: 'paint-brush', pixel: 1, group: 'painted-group' });
+export const brushAtom = atom<IMCell>({ deviceId: 'paint-brush', pixel: 0, group: 'group-1' });
 
 export const selectionAtom = atom<CellAtom[]>([]);
 
-// The drag state now has a more descriptive drop preview.
 export const dragStateAtom = atom<{
   type: 'paint' | 'move';
   isDragging: boolean;
   draggedAtoms: CellAtom[];
   draggedFrom: { r: number; c: number } | null;
-  isCollision: boolean; // We keep this for a quick global check
-  dropPreview: { r: number; c: number; status: 'valid' | 'colliding' }[]; // <-- UPGRADED
+  isCollision: boolean;
+  dropPreview: { r: number; c: number; status: 'valid' | 'colliding' }[];
 } | null>(null);
+
+// --- NEW ATOMS FOR BRUSH SETTINGS ---
+export const isPixelAutoIncrementAtom = atom(true); // On by default
+export const isGroupAutoIncrementAtom = atom(false); // Off by default
+
+// This atom will temporarily store the atoms painted in a single stroke
+export const strokeAtomsAtom = atom<CellAtom[]>([]);

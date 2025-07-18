@@ -8,6 +8,9 @@ import {
   dragStateAtom,
   createCellAtom,
   type CellAtom,
+  isGroupAutoIncrementAtom, // <-- New import
+  strokeAtomsAtom,         // <-- New import
+  brushAtom,               // <-- New import
 } from '../atoms';
 import { MCell } from '../MatrixStudio.types';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
@@ -16,9 +19,15 @@ import GridCell from './GridCell';
 export const Grid = () => {
   const setPixelGrid = useSetAtom(pixelGridTargetAtom);
   const setIsInteracting = useSetAtom(isInteractingAtom);
+  const setStrokeAtoms = useSetAtom(strokeAtomsAtom);
   const [dragState, setDragState] = useAtom(dragStateAtom);
   const pixelGrid = useAtomValue(pixelGridTargetAtom);
   const store = useStore();
+
+  // --- NEW HOOKS FOR ON-RELEASE LOGIC ---
+  const isGroupIncrement = useAtomValue(isGroupAutoIncrementAtom);
+  const strokeAtoms = useAtomValue(strokeAtomsAtom);
+  const setBrushData = useSetAtom(brushAtom); // <-- The clean way to get the setter
 
   const rows = pixelGrid.length;
   const cols = pixelGrid[0]?.length || 0;
@@ -80,8 +89,21 @@ export const Grid = () => {
 
   const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
     e.currentTarget.style.cursor = 'default';
+
+    // --- NEW "ON RELEASE" LOGIC ---
+    if (isGroupIncrement && strokeAtoms.length > 0) {
+      const newGroupId = `g-${Date.now().toString(36)}`;
+      strokeAtoms.forEach(atom => {
+        const currentData = store.get(atom);
+        store.set(atom, { ...currentData, group: newGroupId });
+      });
+      setBrushData(prev => ({ ...prev, group: newGroupId }));
+    }
+
+    // Reset interaction states
     setIsInteracting(false);
     setDragState(null);
+    setStrokeAtoms([]); // Clear the stroke
   };
   
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -102,7 +124,7 @@ export const Grid = () => {
         maxScale={8}
         panning={{ disabled: false }}
         wheel={{ step: 0.05 }}
-        doubleClick={{ disabled: true }} // <-- DISABLE DOUBLE-CLICK ZOOM
+        doubleClick={{ disabled: true }}
       >
         <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
           <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 50px)`, gridTemplateRows: `repeat(${rows}, 50px)`, width: `${cols * 50}px`, height: `${rows * 50}px`, gap: '1px', userSelect: 'none' }}>

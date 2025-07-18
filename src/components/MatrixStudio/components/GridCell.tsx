@@ -8,6 +8,8 @@ import {
   brushAtom,
   selectionAtom,
   dragStateAtom,
+  isPixelAutoIncrementAtom, // For pixel increment toggle
+  strokeAtomsAtom,         // For tracking the paint stroke
   pixelGridTargetAtom,
   type CellAtom,
 } from '../atoms';
@@ -39,9 +41,16 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
   const store = useStore();
   const theme = useTheme();
 
+  // Hooks for the new brush features
+  const isPixelIncrement = useAtomValue(isPixelAutoIncrementAtom);
+  const setStrokeAtoms = useSetAtom(strokeAtomsAtom);
+
   const applyPaintAndIncrement = () => {
     setCellData(brushData);
-    setBrushData(prev => ({ ...prev, pixel: prev.pixel + 1 }));
+    setStrokeAtoms(prev => [...prev, cellAtom]); // Add this cell to the current stroke
+    if (isPixelIncrement) {
+      setBrushData(prev => ({ ...prev, pixel: prev.pixel + 1 }));
+    }
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -53,6 +62,7 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
       if (cellData.deviceId && isAlreadySelected) {
         setDragState({ type: 'move', isDragging: false, draggedAtoms: selection, draggedFrom: { r: rowIndex, c: colIndex }, isCollision: false, dropPreview: [] });
       } else if (!cellData.deviceId) {
+        setStrokeAtoms([]); // CRITICAL: Reset the stroke on a new paint action
         applyPaintAndIncrement();
         setDragState({ type: 'paint', isDragging: false, draggedAtoms: [], draggedFrom: null, isCollision: false, dropPreview: [] });
       }
@@ -64,8 +74,11 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
   const handleMouseEnter = () => {
     if (dragState?.type === 'move' && dragState.isDragging) onValidateDrop(rowIndex, colIndex);
     if (!isInteracting) return;
-    if (dragState?.type === 'paint' && !cellData.deviceId) applyPaintAndIncrement();
-    else if (activeTool === 'erase' && cellData.deviceId) setCellData(MCell);
+    if (dragState?.type === 'paint' && !cellData.deviceId) {
+      applyPaintAndIncrement();
+    } else if (activeTool === 'erase' && cellData.deviceId) {
+      setCellData(MCell);
+    }
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
@@ -73,34 +86,28 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
       if (dragState.type === 'move') onDrop(rowIndex, colIndex);
       return;
     }
-    if (activeTool === 'paint') {
-      if (dragState?.type === 'move') {
-        if (e.ctrlKey) setSelection(prev => prev.filter(atom => atom !== cellAtom));
-        else setSelection([]);
-      } else if (!dragState && cellData.deviceId) {
-        if (e.ctrlKey) setSelection(prev => [...prev, cellAtom]);
+    if (activeTool === 'paint' && cellData.deviceId) {
+      const isAlreadySelected = selection.includes(cellAtom);
+      if (e.ctrlKey) {
+        if (isAlreadySelected) setSelection(prev => prev.filter(atom => atom !== cellAtom));
+        else setSelection(prev => [...prev, cellAtom]);
+      } else {
+        if (isAlreadySelected) setSelection([]);
         else setSelection([cellAtom]);
       }
     }
   };
-  
-  const handleDoubleClick = () => {
-    // Only works in paint mode on a filled cell with a group ID
-    if (activeTool !== 'paint' || !cellData.deviceId || !cellData.group) return;
 
+  const handleDoubleClick = () => {
+    if (activeTool !== 'paint' || !cellData.deviceId || !cellData.group) return;
     const targetGroup = cellData.group;
     const groupAtoms: CellAtom[] = [];
-
-    // Imperatively read the grid to find all atoms in the same group
     pixelGrid.forEach(row => {
       row.forEach(atom => {
         const data = store.get(atom);
-        if (data.group === targetGroup) {
-          groupAtoms.push(atom);
-        }
+        if (data.group === targetGroup) groupAtoms.push(atom);
       });
     });
-
     setSelection(groupAtoms);
   };
 
@@ -108,7 +115,7 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
   const getHighlightStyle = () => {
     if (!previewInfo) return {};
     if (previewInfo.status === 'valid') return { backgroundColor: 'rgba(0, 188, 212, 0.2)', border: `1px dashed ${theme.palette.primary.main}` };
-    if (previewInfo.status === 'colliding') return { backgroundColor: `rgba(${theme.palette.error.main} / 0.2)`, border: `1px dashed ${theme.palette.error.main}` };
+    if (previewInfo.status === 'colliding') return { backgroundColor: `rgba(${theme.palette.error.main} / 0.5)`, border: `1px dashed ${theme.palette.error.main}` };
     return {};
   };
 
@@ -127,7 +134,7 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
       onMouseDown={handleMouseDown}
       onMouseEnter={handleMouseEnter}
       onMouseUp={handleMouseUp}
-      onDoubleClick={handleDoubleClick} // <-- ADD DOUBLE-CLICK HANDLER
+      onDoubleClick={handleDoubleClick}
       sx={{
         boxSizing: 'border-box',
         transition: 'background-color 0.1s ease-in-out, border 0.1s ease-in-out',

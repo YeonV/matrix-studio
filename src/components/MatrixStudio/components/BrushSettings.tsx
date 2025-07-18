@@ -1,18 +1,18 @@
+// src/components/MatrixStudio/components/BrushSettings.tsx
+
 import { useAtom } from 'jotai';
-import { Box, Divider, Stack, TextField, Typography } from '@mui/material';
-import { brushAtom } from '../atoms';
+import { Box, Divider, Stack, TextField, Typography, InputAdornment, IconButton, Tooltip } from '@mui/material';
+import { DynamicFeed, Exposure } from '@mui/icons-material';
+import { brushAtom, isPixelAutoIncrementAtom, isGroupAutoIncrementAtom } from '../atoms';
 
 export const BrushSettings = () => {
-  // Get two-way binding to the global brush atom
   const [brushData, setBrushData] = useAtom(brushAtom);
+  const [isPixelIncrement, setIsPixelIncrement] = useAtom(isPixelAutoIncrementAtom);
+  const [isGroupIncrement, setIsGroupIncrement] = useAtom(isGroupAutoIncrementAtom);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    // Update the brush atom's state as the user types
-    setBrushData(prev => ({
-      ...prev,
-      [name]: name === 'pixel' ? parseInt(value, 10) || 0 : value,
-    }));
+    setBrushData(prev => ({ ...prev, [name]: name === 'pixel' ? parseInt(value, 10) || 0 : value }));
   };
 
   return (
@@ -40,6 +40,17 @@ export const BrushSettings = () => {
           variant="filled"
           size="small"
           fullWidth
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <Tooltip title="Toggle Auto-Increment Pixel #">
+                  <IconButton onClick={() => setIsPixelIncrement(prev => !prev)} edge="end">
+                    <Exposure color={isPixelIncrement ? 'primary' : 'inherit'} />
+                  </IconButton>
+                </Tooltip>
+              </InputAdornment>
+            ),
+          }}
         />
         <TextField
           label="Group"
@@ -49,6 +60,17 @@ export const BrushSettings = () => {
           variant="filled"
           size="small"
           fullWidth
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <Tooltip title="Toggle Auto-Generate Group on Release">
+                  <IconButton onClick={() => setIsGroupIncrement(prev => !prev)} edge="end">
+                    <DynamicFeed color={isGroupIncrement ? 'primary' : 'inherit'} />
+                  </IconButton>
+                </Tooltip>
+              </InputAdornment>
+            ),
+          }}
         />
       </Stack>
     </Box>
