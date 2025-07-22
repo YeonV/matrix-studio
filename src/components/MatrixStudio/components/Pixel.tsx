@@ -1,29 +1,24 @@
-// src/components/MatrixStudio/components/Pixel.tsx
-
+import React from 'react';
 import { useAtomValue } from 'jotai';
 import { Box, Typography, useTheme } from '@mui/material';
-import { type CellAtom, getPixelStateAtom } from '../atoms'; // Import our new atom creator
-import React from 'react';
+import { type CellAtom, getPixelStateAtom } from '../atoms';
 
 interface PixelProps {
   cellAtom: CellAtom;
 }
 
-const Pixel = ({ cellAtom }: PixelProps) => {
+const PixelComponent = ({ cellAtom }: PixelProps) => {
   const theme = useTheme();
-  // Subscribe ONLY to this pixel's own data.
+  // This subscription is fine, it's to the pixel's own data.
   const cellData = useAtomValue(cellAtom);
   
   // --- THE PERFORMANCE FIX ---
-  // Create a memoized derived atom for just this pixel's display state.
-  // This atom only recalculates when the global selection/drag state changes.
-  // CRUCIALLY, the Pixel component only re-renders if the *result* of this
-  // derived atom (the boolean values) actually changes for THIS pixel.
+  // Create a memoized instance of our derived atom. This atom is specific to THIS pixel.
   const pixelStateAtom = React.useMemo(() => getPixelStateAtom(cellAtom), [cellAtom]);
+  // We subscribe to this tiny atom. If its result doesn't change for this pixel, no re-render happens.
   const { isSelected, isGhosted } = useAtomValue(pixelStateAtom);
 
   const dynamicStyles = {
-    // ... (all your style properties are the same, just using isSelected and isGhosted)
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
@@ -52,4 +47,4 @@ const Pixel = ({ cellAtom }: PixelProps) => {
   );
 };
 
-export default React.memo(Pixel);
+export default React.memo(PixelComponent);

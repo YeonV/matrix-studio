@@ -1,5 +1,3 @@
-// src/components/MatrixStudio/atoms.ts
-
 import { atom } from 'jotai';
 import { withHistory } from 'jotai-history';
 import type { IMCell } from './MatrixStudio.types';
@@ -29,26 +27,25 @@ export const dragStateAtom = atom<{
   dropPreview: { r: number; c: number; status: 'valid' | 'colliding' }[];
 } | null>(null);
 
-// --- NEW ATOMS FOR BRUSH SETTINGS ---
 export type PixelIncrementMode = 'increment' | 'decrement' | 'off';
-export const pixelIncrementModeAtom = atom<PixelIncrementMode>('increment')
+export const pixelIncrementModeAtom = atom<PixelIncrementMode>('increment');
 export const isGroupAutoIncrementAtom = atom(false);
 export const strokeAtomsAtom = atom<CellAtom[]>([]);
+export const lastPaintedCellAtom = atom<{ r: number; c: number } | null>(null);
 
 export const gridDataAtom = atom((get) => {
   const gridOfAtoms = get(pixelGridTargetAtom);
   return gridOfAtoms.map(row => row.map(cellAtom => get(cellAtom)));
 });
 
-// --- NEW PERFORMANCE ATOM #1: The Group Map ---
-// This atom creates a lookup table for groups, giving us O(1) access.
+// --- PERFORMANCE ATOM #1: The Group Map ---
+// This creates a fast lookup table for group selections.
 export const groupMapAtom = atom((get) => {
   const gridOfAtoms = get(pixelGridTargetAtom);
   const map = new Map<string, CellAtom[]>();
-
   gridOfAtoms.forEach(row => {
     row.forEach(atom => {
-      const data = get(atom); // This is efficient inside a derived atom
+      const data = get(atom);
       if (data.group) {
         if (!map.has(data.group)) {
           map.set(data.group, []);
@@ -60,9 +57,9 @@ export const groupMapAtom = atom((get) => {
   return map;
 });
 
-// --- NEW PERFORMANCE ATOM #2: Atom Creator for Selection/Ghosting ---
-// This is an advanced pattern. It's a function that creates a derived atom.
-// This allows each Pixel to have its own tiny, derived state.
+// --- PERFORMANCE ATOM #2: The Pixel State Creator ---
+// This function creates a tiny, derived atom that only tracks the
+// display state (isSelected, isGhosted) for a single pixel.
 export const getPixelStateAtom = (cellAtom: CellAtom) => atom((get) => {
   const selection = get(selectionAtom);
   const dragState = get(dragStateAtom);

@@ -1,5 +1,3 @@
-// src/components/MatrixStudio/components/GridCell.tsx
-
 import { useAtom, useSetAtom, useAtomValue, useStore } from 'jotai';
 import { useTheme } from '@mui/material/styles';
 import {
@@ -52,9 +50,8 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
   const applyPaintAction = () => {
     const currentBrushData = store.get(brushAtom);
     const selectedDevice = deviceList.find(d => d.id === currentBrushData.deviceId);
-    if (selectedDevice && (currentBrushData.pixel >= selectedDevice.count || currentBrushData.pixel < 0)) {
-      return;
-    }
+    if (selectedDevice && (currentBrushData.pixel >= selectedDevice.count || currentBrushData.pixel < 0)) return;
+
     setCellData(currentBrushData);
     setStrokeAtoms(prev => [...prev, cellAtom]);
     if (pixelMode === 'increment') {
@@ -118,8 +115,8 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
   const previewInfo = dragState?.type === 'move' && dragState.isDragging ? dragState.dropPreview.find(p => p.r === rowIndex && p.c === colIndex) : null;
   const getHighlightStyle = () => {
     if (!previewInfo) return {};
-    if (previewInfo.status === 'valid') return { backgroundColor: 'rgba(0, 188, 212, 0.2)', border: `1px dashed ${theme.palette.primary.main}` };
-    if (previewInfo.status === 'colliding') return { backgroundColor: `rgba(${theme.palette.error.main.replace('rgb(','').replace(')','')}, 0.2)`, border: `1px dashed ${theme.palette.error.main}` };
+    if (previewInfo.status === 'valid') return { backgroundColor: 'rgba(0, 188, 200, 0.2)', border: `1px dashed ${theme.palette.primary.main}` };
+    if (previewInfo.status === 'colliding') return { backgroundColor: `rgba(255, 0, 0, 0.2)`, border: `1px dashed ${theme.palette.error.main}` };
     return {};
   };
   

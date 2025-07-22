@@ -16,6 +16,7 @@ import { MCell } from '../MatrixStudio.types';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import GridCell from './GridCell';
 import { useMatrixEditorContext } from '../MatrixStudioContext';
+import React from 'react';
 
 export const Grid = () => {
   const setPixelGrid = useSetAtom(pixelGridTargetAtom);
@@ -32,6 +33,9 @@ export const Grid = () => {
 
   const rows = pixelGrid.length;
   const cols = pixelGrid[0]?.length || 0;
+  const CELL_SIZE = 50;
+  const GAP_SIZE = 1;
+  const fullCellSize = CELL_SIZE + GAP_SIZE;
 
   const handleValidateDrop = (targetR: number, targetC: number) => {
     if (!dragState || !dragState.draggedFrom) return;
@@ -98,8 +102,9 @@ export const Grid = () => {
       });
       setBrushData(prev => ({ ...prev, group: newGroupId }));
     }
-    const selectedDevice = deviceList.find(d => d.id === store.get(brushAtom).deviceId);
-    if (selectedDevice && store.get(brushAtom).pixel >= selectedDevice.count) {
+    const brushValue = store.get(brushAtom);
+    const selectedDevice = deviceList.find(d => d.id === brushValue.deviceId);
+    if (selectedDevice && brushValue.pixel >= selectedDevice.count) {
       setBrushData(prev => ({ ...prev, pixel: selectedDevice.count - 1 }));
     }
     setIsInteracting(false);
@@ -120,11 +125,25 @@ export const Grid = () => {
   return (
     <Box onContextMenu={(e) => e.preventDefault()} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onMouseMove={handleMouseMove} sx={{ width: '100%', height: '100%', cursor: 'default', backgroundColor: '#111' }}>
       <TransformWrapper
-        limitToBounds={false} minScale={0.2} maxScale={8} panning={{ disabled: false }}
-        wheel={{ step: 0.05 }} doubleClick={{ disabled: true }}
+        limitToBounds={false}
+        minScale={0.2}
+        maxScale={8}
+        panning={{ disabled: false }}
+        wheel={{ step: 0.05 }}
+        doubleClick={{ disabled: true }}
       >
         <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 50px)`, gridTemplateRows: `repeat(${rows}, 50px)`, width: `${cols * 50}px`, height: `${rows * 50}px`, gap: '1px', userSelect: 'none' }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(${cols}, ${CELL_SIZE}px)`,
+              gridTemplateRows: `repeat(${rows}, ${CELL_SIZE}px)`,
+              width: `${cols * fullCellSize}px`,
+              height: `${rows * fullCellSize}px`,
+              gap: `${GAP_SIZE}px`,
+              userSelect: 'none',
+            }}
+          >
             {pixelGrid.map((row, r) =>
               row.map((cellAtom, c) => (
                 <GridCell
