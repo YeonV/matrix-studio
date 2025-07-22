@@ -1,3 +1,11 @@
+// src/components/MatrixStudio/MatrixStudio.types.ts
+
+// NEW: Define the shape of a device object
+export interface IDevice {
+  id: string;
+  count: number;
+}
+
 // The core data structure for a single cell
 export interface IMCell {
   deviceId: string;
@@ -15,5 +23,5 @@ export interface MatrixStudioProps {
   initialData?: IMCell[][];
   onSave?: (data: IMCell[][]) => void;
   onChange?: (data: IMCell[][]) => void;
-  deviceList?: string[]; 
+  deviceList?: IDevice[]; // <-- UPDATED to use the new type
 }

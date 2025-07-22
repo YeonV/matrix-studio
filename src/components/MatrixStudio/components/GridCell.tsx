@@ -8,14 +8,15 @@ import {
   brushAtom,
   selectionAtom,
   dragStateAtom,
-  isPixelAutoIncrementAtom, // For pixel increment toggle
-  strokeAtomsAtom,         // For tracking the paint stroke
+  pixelIncrementModeAtom,
+  strokeAtomsAtom,
   pixelGridTargetAtom,
   type CellAtom,
 } from '../atoms';
 import { MCell } from '../MatrixStudio.types';
 import { Box } from '@mui/material';
 import { Pixel } from './Pixel';
+import { useMatrixEditorContext } from '../MatrixStudioContext';
 
 const paintCursorSVG = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="#FFFFFF"/></svg>`;
 const encodedPaintCursor = encodeURIComponent(paintCursorSVG).replace(/'/g, '%27').replace(/"/g, '%22');
@@ -42,16 +43,30 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
   const theme = useTheme();
 
   // Hooks for the new brush features
-  const isPixelIncrement = useAtomValue(isPixelAutoIncrementAtom);
+  const pixelMode = useAtomValue(pixelIncrementModeAtom);
   const setStrokeAtoms = useSetAtom(strokeAtomsAtom);
+  const { deviceList } = useMatrixEditorContext();
 
-  const applyPaintAndIncrement = () => {
+const applyPaintAction = () => {
+    const selectedDevice = deviceList.find(d => d.id === brushData.deviceId);
+    
+    // Guard clause: check if pixel is within 0 to count-1 range
+    if (selectedDevice && (brushData.pixel >= selectedDevice.count || brushData.pixel < 0)) {
+      return;
+    }
+
     setCellData(brushData);
-    setStrokeAtoms(prev => [...prev, cellAtom]); // Add this cell to the current stroke
-    if (isPixelIncrement) {
+    setStrokeAtoms(prev => [...prev, cellAtom]);
+    
+    // Perform increment, decrement, or nothing based on the mode
+    if (pixelMode === 'increment') {
       setBrushData(prev => ({ ...prev, pixel: prev.pixel + 1 }));
+    } else if (pixelMode === 'decrement') {
+      setBrushData(prev => ({ ...prev, pixel: prev.pixel - 1 }));
     }
   };
+
+
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
@@ -62,8 +77,8 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
       if (cellData.deviceId && isAlreadySelected) {
         setDragState({ type: 'move', isDragging: false, draggedAtoms: selection, draggedFrom: { r: rowIndex, c: colIndex }, isCollision: false, dropPreview: [] });
       } else if (!cellData.deviceId) {
-        setStrokeAtoms([]); // CRITICAL: Reset the stroke on a new paint action
-        applyPaintAndIncrement();
+        setStrokeAtoms([]);
+        applyPaintAction();
         setDragState({ type: 'paint', isDragging: false, draggedAtoms: [], draggedFrom: null, isCollision: false, dropPreview: [] });
       }
     } else if (activeTool === 'erase') {
@@ -71,15 +86,17 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
     }
   };
 
+
   const handleMouseEnter = () => {
     if (dragState?.type === 'move' && dragState.isDragging) onValidateDrop(rowIndex, colIndex);
     if (!isInteracting) return;
     if (dragState?.type === 'paint' && !cellData.deviceId) {
-      applyPaintAndIncrement();
+      applyPaintAction();
     } else if (activeTool === 'erase' && cellData.deviceId) {
       setCellData(MCell);
     }
   };
+
 
   const handleMouseUp = (e: React.MouseEvent) => {
     if (dragState?.isDragging) {

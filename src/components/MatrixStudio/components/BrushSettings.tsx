@@ -2,21 +2,45 @@
 
 import { useAtom } from 'jotai';
 import { Box, Divider, Stack, TextField, Typography, InputAdornment, IconButton, Tooltip, Autocomplete } from '@mui/material';
-import { Exposure, DynamicFeed } from '@mui/icons-material';
-import { brushAtom, isPixelAutoIncrementAtom, isGroupAutoIncrementAtom } from '../atoms';
-import { useMatrixEditorContext } from '../MatrixStudioContext'; // Import context hook
+import { AddBox, Block, DynamicFeed, IndeterminateCheckBox } from '@mui/icons-material';
+import { brushAtom, isGroupAutoIncrementAtom, type PixelIncrementMode, pixelIncrementModeAtom } from '../atoms';
+import { useMatrixEditorContext } from '../MatrixStudioContext';
 
 export const BrushSettings = () => {
   const [brushData, setBrushData] = useAtom(brushAtom);
-  const [isPixelIncrement, setIsPixelIncrement] = useAtom(isPixelAutoIncrementAtom);
+  
+  
+  const [pixelMode, setPixelMode] = useAtom(pixelIncrementModeAtom);
   const [isGroupIncrement, setIsGroupIncrement] = useAtom(isGroupAutoIncrementAtom);
-
-  // Get the device list from the context
   const { deviceList } = useMatrixEditorContext();
 
   const handleBrushChange = (field: string, value: string | number) => {
     setBrushData(prev => ({ ...prev, [field]: value }));
   };
+
+  const cyclePixelMode = () => {
+    const modes: PixelIncrementMode[] = ['increment', 'decrement', 'off'];
+    const currentIndex = modes.indexOf(pixelMode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    setPixelMode(modes[nextIndex]);
+  };
+
+  const getPixelModeUI = () => {
+    switch (pixelMode) {
+      case 'increment':
+        return { icon: <AddBox color="primary" />, title: 'Pixel Auto-Increment: ON' };
+      case 'decrement':
+        return { icon: <IndeterminateCheckBox color="primary" />, title: 'Pixel Auto-Decrement: ON' };
+      case 'off':
+      default:
+        return { icon: <Block />, title: 'Pixel Auto-Increment: OFF' };
+    }
+  };
+
+
+  const pixelModeUI = getPixelModeUI();
+  const selectedDevice = deviceList.find(d => d.id === brushData.deviceId);
+  const maxPixel = selectedDevice ? selectedDevice.count - 1 : undefined;
 
   return (
     <Box>
@@ -28,22 +52,18 @@ export const BrushSettings = () => {
         <Autocomplete
           freeSolo
           options={deviceList}
-          value={brushData.deviceId}
-          // This handles both selecting an option and typing a new value
+          // The Autocomplete needs to know how to get the label string from the object
+          getOptionLabel={(option) => (typeof option === 'string' ? option : option.id)}
+          value={selectedDevice || brushData.deviceId} // Show the object or the raw string
           onChange={(event, newValue) => {
-            handleBrushChange('deviceId', newValue || '');
+            const newDeviceId = typeof newValue === 'string' ? newValue : newValue?.id || '';
+            handleBrushChange('deviceId', newDeviceId);
           }}
-          // This ensures the atom updates as you type
           onInputChange={(event, newInputValue) => {
             handleBrushChange('deviceId', newInputValue);
           }}
           renderInput={(params) => (
-            <TextField
-              {...params}
-              label="Device ID"
-              variant="filled"
-              size="small"
-            />
+            <TextField {...params} label="Device ID" variant="filled" size="small" />
           )}
         />
         <TextField
@@ -55,12 +75,19 @@ export const BrushSettings = () => {
           variant="filled"
           size="small"
           fullWidth
+          inputProps={{ min: 0, max: maxPixel }}
+          error={maxPixel !== undefined && (brushData.pixel > maxPixel || brushData.pixel < 0)}
+          helperText={
+            maxPixel !== undefined && (brushData.pixel > maxPixel || brushData.pixel < 0)
+              ? `Range: 0 - ${maxPixel}`
+              : ''
+          }
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                <Tooltip title="Toggle Auto-Increment Pixel #">
-                  <IconButton onClick={() => setIsPixelIncrement(prev => !prev)} edge="end">
-                    <Exposure color={isPixelIncrement ? 'primary' : 'inherit'} />
+                <Tooltip title={pixelModeUI.title}>
+                  <IconButton onClick={cyclePixelMode} edge="end">
+                    {pixelModeUI.icon}
                   </IconButton>
                 </Tooltip>
               </InputAdornment>

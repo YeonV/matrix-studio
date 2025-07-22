@@ -30,8 +30,7 @@ export const dragStateAtom = atom<{
 } | null>(null);
 
 // --- NEW ATOMS FOR BRUSH SETTINGS ---
-export const isPixelAutoIncrementAtom = atom(true); // On by default
-export const isGroupAutoIncrementAtom = atom(false); // Off by default
-
-// This atom will temporarily store the atoms painted in a single stroke
+export type PixelIncrementMode = 'increment' | 'decrement' | 'off';
+export const pixelIncrementModeAtom = atom<PixelIncrementMode>('increment')
+export const isGroupAutoIncrementAtom = atom(false);
 export const strokeAtomsAtom = atom<CellAtom[]>([]);

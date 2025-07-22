@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Box } from '@mui/material';
 import { MatrixStudio } from '@/components/MatrixStudio/MatrixStudio';
-import type { IMCell } from '@/components/MatrixStudio/MatrixStudio.types';
+import type { IMCell, IDevice } from '@/components/MatrixStudio/MatrixStudio.types';
 import { DevControls } from '@/components/DevControls';
 
 const simpleLayoutTemplate: IMCell[][] = [
@@ -11,10 +11,15 @@ const simpleLayoutTemplate: IMCell[][] = [
   [{ deviceId: '', pixel: 0, group: '' }, { deviceId: 'dev-1', pixel: 2, group: 'group-1' }],
 ];
 const emptyLayoutTemplate: IMCell[][] = [];
+// --- DEFINE THE NEW DEVICE LIST DATA STRUCTURE ---
+const availableDevices: IDevice[] = [
+  { id: 'wled-strip-1', count: 150 },
+  { id: 'wled-strip-2', count: 300 },
+  { id: 'dev-1', count: 50 },
+  { id: 'main-matrix', count: 1024 },
+];
 
-// --- DEFINE THE EXTERNAL DEVICE LIST ---
-const availableDevices = ['wled-strip-1', 'wled-strip-2', 'dev-1', 'main-matrix'];
-
+// ... rest of App component ...
 function App() {
   const [matrixData, setMatrixData] = useState<IMCell[][]>(() => JSON.parse(JSON.stringify(simpleLayoutTemplate)));
   const [rows, setRows] = useState(16);
