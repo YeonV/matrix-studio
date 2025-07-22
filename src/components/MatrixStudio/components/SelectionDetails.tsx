@@ -1,5 +1,3 @@
-// src/components/MatrixStudio/components/SelectionDetails.tsx
-
 import { useAtom, useAtomValue, useStore } from 'jotai';
 import { useMemo, useState, useEffect } from 'react';
 import { Box, Stack, TextField, Typography, Autocomplete, Button } from '@mui/material';
@@ -45,8 +43,8 @@ const SinglePixelEditor = ({ cellAtom }: { cellAtom: CellAtom }) => {
         size="small"
         fullWidth
         slotProps={{ htmlInput: { min: 0, max: maxPixel } }}
-        error={maxPixel !== undefined && cellData.pixel > maxPixel}
-        helperText={maxPixel !== undefined && cellData.pixel > maxPixel ? `Max: ${maxPixel}` : ''}
+        error={maxPixel !== undefined && (cellData.pixel > maxPixel || cellData.pixel < 0)}
+        helperText={maxPixel !== undefined && (cellData.pixel > maxPixel || cellData.pixel < 0) ? `Range: 0 - ${maxPixel}` : ''}
       />
       <TextField
         label="Group"
@@ -61,48 +59,44 @@ const SinglePixelEditor = ({ cellAtom }: { cellAtom: CellAtom }) => {
   );
 };
 
-// --- NEW: The Batch Editor for Multi-Selections ---
-const MultiPixelEditor = ({ selection }: { selection: CellAtom[] }) => {
+// --- THIS COMPONENT IS NOW CORRECTED ---
+const MultiPixelEditor = ({ selection }: { selection: Set<CellAtom> }) => {
   const { deviceList } = useMatrixEditorContext();
   const store = useStore();
+  
+  // Convert the Set to an array once, and memoize it.
+  const selectionArray = useMemo(() => Array.from(selection), [selection]);
 
-  // Calculate the common properties of the selection. useMemo is critical for performance.
   const commonState = useMemo(() => {
-    const firstPixelData = store.get(selection[0]);
+    if (selectionArray.length === 0) return { commonDeviceId: '', commonGroup: '' };
+    const firstPixelData = store.get(selectionArray[0]);
     let commonDeviceId: string | null = firstPixelData.deviceId;
     let commonGroup: string | null = firstPixelData.group || '';
-
-    for (let i = 1; i < selection.length; i++) {
-      const pixelData = store.get(selection[i]);
+    for (let i = 1; i < selectionArray.length; i++) {
+      const pixelData = store.get(selectionArray[i]);
       if (pixelData.deviceId !== commonDeviceId) commonDeviceId = null;
       if ((pixelData.group || '') !== commonGroup) commonGroup = null;
     }
     return { commonDeviceId, commonGroup };
-  }, [selection, store]);
+  }, [selectionArray, store]);
 
-  // Local state for the form inputs
   const [deviceId, setDeviceId] = useState(commonState.commonDeviceId ?? '');
   const [group, setGroup] = useState(commonState.commonGroup ?? '');
   const [startPixel, setStartPixel] = useState(0);
 
-  // Effect to sync local state if the selection changes
   useEffect(() => {
     setDeviceId(commonState.commonDeviceId ?? '');
     setGroup(commonState.commonGroup ?? '');
   }, [commonState]);
 
   const handleBatchUpdate = (field: 'deviceId' | 'group', value: string) => {
-    selection.forEach(atom => {
-      store.set(atom, prev => ({ ...prev, [field]: value }));
-    });
+    selectionArray.forEach(atom => store.set(atom, prev => ({ ...prev, [field]: value })));
   };
 
   const handleRenumber = () => {
-    selection.forEach((atom, index) => {
-      store.set(atom, prev => ({ ...prev, pixel: startPixel + index }));
-    });
+    selectionArray.forEach((atom, index) => store.set(atom, prev => ({ ...prev, pixel: startPixel + index })));
   };
-
+  
   return (
     <Stack spacing={2}>
       <Autocomplete
@@ -110,12 +104,12 @@ const MultiPixelEditor = ({ selection }: { selection: CellAtom[] }) => {
         options={deviceList}
         getOptionLabel={(option) => (typeof option === 'string' ? option : option.id)}
         value={deviceList.find(d => d.id === deviceId) || deviceId}
-        onChange={(e, newValue) => {
+        onChange={(_event, newValue) => {
           const newDeviceId = typeof newValue === 'string' ? newValue : newValue?.id || '';
           setDeviceId(newDeviceId);
           handleBatchUpdate('deviceId', newDeviceId);
         }}
-        onInputChange={(e, newInputValue) => setDeviceId(newInputValue)}
+        onInputChange={(_event, newInputValue) => setDeviceId(newInputValue)}
         renderInput={(params) => (
           <TextField
             {...params}
@@ -130,7 +124,7 @@ const MultiPixelEditor = ({ selection }: { selection: CellAtom[] }) => {
         label="Group"
         value={group}
         onChange={(e) => setGroup(e.target.value)}
-        onBlur={() => handleBatchUpdate('group', group)} // Update on blur
+        onBlur={() => handleBatchUpdate('group', group)}
         variant="filled"
         size="small"
         fullWidth
@@ -154,32 +148,27 @@ const MultiPixelEditor = ({ selection }: { selection: CellAtom[] }) => {
   );
 };
 
-
-// --- The Main Component ---
 export const SelectionDetails = () => {
   const selection = useAtomValue(selectionAtom);
-  const hasSingleSelection = selection.length === 1;
-  const hasMultipleSelection = selection.length > 1;
+  const hasSingleSelection = selection.size === 1;
+  const hasMultipleSelection = selection.size > 1;
+
+  const singleSelectedAtom = hasSingleSelection ? selection.values().next().value : null;
 
   return (
     <Box sx={{ p: 2 }}>
       <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
         Selection Details
       </Typography>
-
       {hasMultipleSelection && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {selection.length} pixels selected.
+          {selection.size} pixels selected.
         </Typography>
       )}
-      {hasSingleSelection && <SinglePixelEditor cellAtom={selection[0]} />}
-
+      {hasSingleSelection && singleSelectedAtom && <SinglePixelEditor cellAtom={singleSelectedAtom} />}
       {hasMultipleSelection && <MultiPixelEditor selection={selection} />}
-
       {!hasSingleSelection && !hasMultipleSelection && (
-        <Typography variant="body2" color="text.secondary">
-          No selection.
-        </Typography>
+        <Typography variant="body2" color="text.secondary">No selection.</Typography>
       )}
     </Box>
   );

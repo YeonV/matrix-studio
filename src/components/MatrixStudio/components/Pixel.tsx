@@ -9,13 +9,10 @@ interface PixelProps {
 
 const PixelComponent = ({ cellAtom }: PixelProps) => {
   const theme = useTheme();
-  // This subscription is fine, it's to the pixel's own data.
   const cellData = useAtomValue(cellAtom);
   
-  // --- THE PERFORMANCE FIX ---
-  // Create a memoized instance of our derived atom. This atom is specific to THIS pixel.
+  // This atom is now hyper-efficient thanks to the Set
   const pixelStateAtom = React.useMemo(() => getPixelStateAtom(cellAtom), [cellAtom]);
-  // We subscribe to this tiny atom. If its result doesn't change for this pixel, no re-render happens.
   const { isSelected, isGhosted } = useAtomValue(pixelStateAtom);
 
   const dynamicStyles = {

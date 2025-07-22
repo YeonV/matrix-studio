@@ -16,7 +16,9 @@ export const isInteractingAtom = atom<boolean>(false);
 
 export const brushAtom = atom<IMCell>({ deviceId: 'paint-brush', pixel: 0, group: 'group-1' });
 
-export const selectionAtom = atom<CellAtom[]>([]);
+// --- YOUR CORRECT FIX ---
+// The selection is a Set, initialized with the correct type.
+export const selectionAtom = atom<Set<CellAtom>>(new Set<CellAtom>());
 
 export const dragStateAtom = atom<{
   type: 'paint' | 'move';
@@ -38,8 +40,6 @@ export const gridDataAtom = atom((get) => {
   return gridOfAtoms.map(row => row.map(cellAtom => get(cellAtom)));
 });
 
-// --- PERFORMANCE ATOM #1: The Group Map ---
-// This creates a fast lookup table for group selections.
 export const groupMapAtom = atom((get) => {
   const gridOfAtoms = get(pixelGridTargetAtom);
   const map = new Map<string, CellAtom[]>();
@@ -57,14 +57,11 @@ export const groupMapAtom = atom((get) => {
   return map;
 });
 
-// --- PERFORMANCE ATOM #2: The Pixel State Creator ---
-// This function creates a tiny, derived atom that only tracks the
-// display state (isSelected, isGhosted) for a single pixel.
 export const getPixelStateAtom = (cellAtom: CellAtom) => atom((get) => {
   const selection = get(selectionAtom);
   const dragState = get(dragStateAtom);
   
-  const isSelected = selection.includes(cellAtom);
+  const isSelected = selection.has(cellAtom);
   const isGhosted = dragState?.type === 'move' && dragState.isDragging && dragState.draggedAtoms.includes(cellAtom);
   
   return { isSelected, isGhosted };

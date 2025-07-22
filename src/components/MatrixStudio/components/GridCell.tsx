@@ -31,18 +31,15 @@ interface GridCellProps {
 const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: GridCellProps) => {
   const [cellData, setCellData] = useAtom(cellAtom);
   const dragState = useAtomValue(dragStateAtom);
-  const selection = useAtomValue(selectionAtom);
+  const [selection, setSelection] = useAtom(selectionAtom);
   const isInteracting = useAtomValue(isInteractingAtom);
   const store = useStore();
   const theme = useTheme();
   const { deviceList } = useMatrixEditorContext();
-
   const setDragState = useSetAtom(dragStateAtom);
-  const setSelection = useSetAtom(selectionAtom);
   const setBrushData = useSetAtom(brushAtom);
   const setIsInteracting = useSetAtom(isInteractingAtom);
   const setStrokeAtoms = useSetAtom(strokeAtomsAtom);
-  
   const activeTool = useAtomValue(activeToolAtom);
   const pixelMode = useAtomValue(pixelIncrementModeAtom);
   const groupMap = useAtomValue(groupMapAtom); 
@@ -66,9 +63,9 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
     e.stopPropagation();
     setIsInteracting(true);
     if (activeTool === 'paint') {
-      const isAlreadySelected = selection.includes(cellAtom);
+      const isAlreadySelected = selection.has(cellAtom);
       if (cellData.deviceId && isAlreadySelected) {
-        setDragState({ type: 'move', isDragging: false, draggedAtoms: selection, draggedFrom: { r: rowIndex, c: colIndex }, isCollision: false, dropPreview: [] });
+        setDragState({ type: 'move', isDragging: false, draggedAtoms: Array.from(selection), draggedFrom: { r: rowIndex, c: colIndex }, isCollision: false, dropPreview: [] });
       } else if (!cellData.deviceId) {
         setStrokeAtoms([]);
         applyPaintAction();
@@ -95,13 +92,21 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
       return;
     }
     if (activeTool === 'paint' && cellData.deviceId) {
-      const isAlreadySelected = selection.includes(cellAtom);
+      const isAlreadySelected = selection.has(cellAtom);
       if (e.ctrlKey) {
-        if (isAlreadySelected) setSelection(prev => prev.filter(atom => atom !== cellAtom));
-        else setSelection(prev => [...prev, cellAtom]);
+        const newSelection = new Set(selection);
+        if (isAlreadySelected) {
+          newSelection.delete(cellAtom);
+        } else {
+          newSelection.add(cellAtom);
+        }
+        setSelection(newSelection);
       } else {
-        if (isAlreadySelected) setSelection([]);
-        else setSelection([cellAtom]);
+        if (isAlreadySelected) {
+          setSelection(new Set());
+        } else {
+          setSelection(new Set([cellAtom]));
+        }
       }
     }
   };
@@ -109,9 +114,8 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
   const handleDoubleClick = () => {
     if (activeTool !== 'paint' || !cellData.deviceId || !cellData.group) return;
     const groupAtoms = groupMap.get(cellData.group) || [];
-    setSelection(groupAtoms);
+    setSelection(new Set(groupAtoms));
   };
-
   const previewInfo = dragState?.type === 'move' && dragState.isDragging ? dragState.dropPreview.find(p => p.r === rowIndex && p.c === colIndex) : null;
   const getHighlightStyle = () => {
     if (!previewInfo) return {};
@@ -119,11 +123,11 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
     if (previewInfo.status === 'colliding') return { backgroundColor: `rgba(255, 0, 0, 0.2)`, border: `1px dashed ${theme.palette.error.main}` };
     return {};
   };
-  
+
   const getCursor = () => {
     if (dragState?.type === 'move' && dragState.isDragging) return dragState.isCollision ? 'not-allowed' : 'grabbing';
     if (activeTool === 'paint') {
-      if (cellData.deviceId && selection.includes(cellAtom)) return 'grab';
+      if (cellData.deviceId && selection.has(cellAtom)) return 'grab';
       else if (!cellData.deviceId) return customPaintCursor;
     }
     if (activeTool === 'erase') return 'cell';

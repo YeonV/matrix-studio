@@ -20,7 +20,7 @@ const MatrixStudioCore = (props: MatrixStudioProps) => {
   const matrixApi = useMatrixStudio(props);
   // Read the selection state to determine if the right sidebar should be visible.
   const selection = useAtomValue(selectionAtom);
-  const isDetailsVisible = selection.length > 0;
+  const isDetailsVisible = selection.size > 0;
 
 
   // Use our new hook
@@ -65,7 +65,7 @@ const MatrixStudioCore = (props: MatrixStudioProps) => {
             }),
           }}
         >
-          <SelectionDetails />
+          {isDetailsVisible && <SelectionDetails />}
         </Box>
       </Stack>
     </MatrixStudioContext.Provider>
