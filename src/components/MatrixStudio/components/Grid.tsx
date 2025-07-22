@@ -8,27 +8,27 @@ import {
   dragStateAtom,
   createCellAtom,
   type CellAtom,
-  isGroupAutoIncrementAtom, // <-- New import
-  strokeAtomsAtom,         // <-- New import
-  brushAtom,               // <-- New import
+  isGroupAutoIncrementAtom,
+  strokeAtomsAtom,
+  brushAtom,
 } from '../atoms';
 import { MCell } from '../MatrixStudio.types';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import GridCell from './GridCell';
+import { useMatrixEditorContext } from '../MatrixStudioContext';
 
 export const Grid = () => {
-  
   const setPixelGrid = useSetAtom(pixelGridTargetAtom);
   const setIsInteracting = useSetAtom(isInteractingAtom);
   const setStrokeAtoms = useSetAtom(strokeAtomsAtom);
   const [dragState, setDragState] = useAtom(dragStateAtom);
   const pixelGrid = useAtomValue(pixelGridTargetAtom);
   const store = useStore();
+  const { deviceList } = useMatrixEditorContext();
 
-  // --- NEW HOOKS FOR ON-RELEASE LOGIC ---
   const isGroupIncrement = useAtomValue(isGroupAutoIncrementAtom);
   const strokeAtoms = useAtomValue(strokeAtomsAtom);
-  const setBrushData = useSetAtom(brushAtom); // <-- The clean way to get the setter
+  const setBrushData = useSetAtom(brushAtom);
 
   const rows = pixelGrid.length;
   const cols = pixelGrid[0]?.length || 0;
@@ -90,13 +90,6 @@ export const Grid = () => {
 
   const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
     e.currentTarget.style.cursor = 'default';
-    // if (strokeAtoms.length > 0) {
-    //   const currentData = pixelGrid.map(row => row.map(cellAtom => store.get(cellAtom)));
-    //   const newGridOfNewAtoms = currentData.map(row => row.map(cellData => createCellAtom(cellData)));
-    //   setPixelGrid(newGridOfNewAtoms);
-    // }
-
-    // --- NEW "ON RELEASE" LOGIC ---
     if (isGroupIncrement && strokeAtoms.length > 0) {
       const newGroupId = `g-${Date.now().toString(36)}`;
       strokeAtoms.forEach(atom => {
@@ -105,11 +98,13 @@ export const Grid = () => {
       });
       setBrushData(prev => ({ ...prev, group: newGroupId }));
     }
-
-    // Reset interaction states
+    const selectedDevice = deviceList.find(d => d.id === store.get(brushAtom).deviceId);
+    if (selectedDevice && store.get(brushAtom).pixel >= selectedDevice.count) {
+      setBrushData(prev => ({ ...prev, pixel: selectedDevice.count - 1 }));
+    }
     setIsInteracting(false);
     setDragState(null);
-    setStrokeAtoms([]); // Clear the stroke
+    setStrokeAtoms([]);
   };
   
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -125,12 +120,8 @@ export const Grid = () => {
   return (
     <Box onContextMenu={(e) => e.preventDefault()} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onMouseMove={handleMouseMove} sx={{ width: '100%', height: '100%', cursor: 'default', backgroundColor: '#111' }}>
       <TransformWrapper
-        limitToBounds={false}
-        minScale={0.2}
-        maxScale={8}
-        panning={{ disabled: false }}
-        wheel={{ step: 0.05 }}
-        doubleClick={{ disabled: true }}
+        limitToBounds={false} minScale={0.2} maxScale={8} panning={{ disabled: false }}
+        wheel={{ step: 0.05 }} doubleClick={{ disabled: true }}
       >
         <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
           <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 50px)`, gridTemplateRows: `repeat(${rows}, 50px)`, width: `${cols * 50}px`, height: `${rows * 50}px`, gap: '1px', userSelect: 'none' }}>

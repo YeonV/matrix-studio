@@ -4,18 +4,18 @@ import { useAtom, useSetAtom, useAtomValue, useStore } from 'jotai';
 import { useTheme } from '@mui/material/styles';
 import {
   activeToolAtom,
-  isInteractingAtom,
   brushAtom,
-  selectionAtom,
   dragStateAtom,
   pixelIncrementModeAtom,
   strokeAtomsAtom,
-  pixelGridTargetAtom,
+  selectionAtom,
+  isInteractingAtom,
+  groupMapAtom,
   type CellAtom,
 } from '../atoms';
 import { MCell } from '../MatrixStudio.types';
 import { Box } from '@mui/material';
-import { Pixel } from './Pixel';
+import Pixel from './Pixel';
 import { useMatrixEditorContext } from '../MatrixStudioContext';
 
 const paintCursorSVG = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="#FFFFFF"/></svg>`;
@@ -32,33 +32,29 @@ interface GridCellProps {
 
 const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: GridCellProps) => {
   const [cellData, setCellData] = useAtom(cellAtom);
-  const [dragState, setDragState] = useAtom(dragStateAtom);
-  const [selection, setSelection] = useAtom(selectionAtom);
-  const activeTool = useAtomValue(activeToolAtom);
+  const dragState = useAtomValue(dragStateAtom);
+  const selection = useAtomValue(selectionAtom);
   const isInteracting = useAtomValue(isInteractingAtom);
-  // const [brushData, setBrushData] = useAtom(brushAtom);
-  const setBrushData = useSetAtom(brushAtom);
-  const setIsInteracting = useSetAtom(isInteractingAtom);
-  const pixelGrid = useAtomValue(pixelGridTargetAtom);
   const store = useStore();
   const theme = useTheme();
-
-  // Hooks for the new brush features
-  const pixelMode = useAtomValue(pixelIncrementModeAtom);
-  const setStrokeAtoms = useSetAtom(strokeAtomsAtom);
   const { deviceList } = useMatrixEditorContext();
 
-const applyPaintAction = () => {
-    // --- THE PERFORMANCE FIX ---
-    // Read the LATEST brush data at the moment of painting, inside the handler.
+  const setDragState = useSetAtom(dragStateAtom);
+  const setSelection = useSetAtom(selectionAtom);
+  const setBrushData = useSetAtom(brushAtom);
+  const setIsInteracting = useSetAtom(isInteractingAtom);
+  const setStrokeAtoms = useSetAtom(strokeAtomsAtom);
+  
+  const activeTool = useAtomValue(activeToolAtom);
+  const pixelMode = useAtomValue(pixelIncrementModeAtom);
+  const groupMap = useAtomValue(groupMapAtom); 
+
+  const applyPaintAction = () => {
     const currentBrushData = store.get(brushAtom);
-    
     const selectedDevice = deviceList.find(d => d.id === currentBrushData.deviceId);
-    
-    if (selectedDevice && currentBrushData.pixel >= selectedDevice.count) {
+    if (selectedDevice && (currentBrushData.pixel >= selectedDevice.count || currentBrushData.pixel < 0)) {
       return;
     }
-
     setCellData(currentBrushData);
     setStrokeAtoms(prev => [...prev, cellAtom]);
     if (pixelMode === 'increment') {
@@ -67,8 +63,6 @@ const applyPaintAction = () => {
       setBrushData(prev => ({ ...prev, pixel: prev.pixel - 1 }));
     }
   };
-
-
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
@@ -88,7 +82,6 @@ const applyPaintAction = () => {
     }
   };
 
-
   const handleMouseEnter = () => {
     if (dragState?.type === 'move' && dragState.isDragging) onValidateDrop(rowIndex, colIndex);
     if (!isInteracting) return;
@@ -98,7 +91,6 @@ const applyPaintAction = () => {
       setCellData(MCell);
     }
   };
-
 
   const handleMouseUp = (e: React.MouseEvent) => {
     if (dragState?.isDragging) {
@@ -119,14 +111,7 @@ const applyPaintAction = () => {
 
   const handleDoubleClick = () => {
     if (activeTool !== 'paint' || !cellData.deviceId || !cellData.group) return;
-    const targetGroup = cellData.group;
-    const groupAtoms: CellAtom[] = [];
-    pixelGrid.forEach(row => {
-      row.forEach(atom => {
-        const data = store.get(atom);
-        if (data.group === targetGroup) groupAtoms.push(atom);
-      });
-    });
+    const groupAtoms = groupMap.get(cellData.group) || [];
     setSelection(groupAtoms);
   };
 
@@ -134,10 +119,10 @@ const applyPaintAction = () => {
   const getHighlightStyle = () => {
     if (!previewInfo) return {};
     if (previewInfo.status === 'valid') return { backgroundColor: 'rgba(0, 188, 212, 0.2)', border: `1px dashed ${theme.palette.primary.main}` };
-    if (previewInfo.status === 'colliding') return { backgroundColor: `rgba(${theme.palette.error.main} / 0.5)`, border: `1px dashed ${theme.palette.error.main}` };
+    if (previewInfo.status === 'colliding') return { backgroundColor: `rgba(${theme.palette.error.main.replace('rgb(','').replace(')','')}, 0.2)`, border: `1px dashed ${theme.palette.error.main}` };
     return {};
   };
-
+  
   const getCursor = () => {
     if (dragState?.type === 'move' && dragState.isDragging) return dragState.isCollision ? 'not-allowed' : 'grabbing';
     if (activeTool === 'paint') {
@@ -147,7 +132,7 @@ const applyPaintAction = () => {
     if (activeTool === 'erase') return 'cell';
     return 'default';
   };
-
+  
   return (
     <Box
       onMouseDown={handleMouseDown}
