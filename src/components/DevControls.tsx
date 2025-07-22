@@ -7,6 +7,8 @@ import {
   Gesture,
   CropFree,
   ViewModule,
+  FileUpload,
+  Save,
 } from '@mui/icons-material';
 
 // --- The New, Awesome Tooltip Content ---
@@ -88,10 +90,14 @@ interface DevControlsProps {
   cols: number;
   onRowsChange: (value: number) => void;
   onColsChange: (value: number) => void;
+  onLoadClick: () => void;
+  onExportClick: () => void;
 }
 
 export const DevControls = (props: DevControlsProps) => {
   const {
+    onLoadClick,
+    onExportClick,
     onLoadEmpty,
     onLoadSimple,
     onApplyResize,
@@ -135,8 +141,16 @@ export const DevControls = (props: DevControlsProps) => {
       </Stack>
       <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2 }}>
         {/* --- Layout Buttons --- */}
-        <Button variant="outlined" size="small" onClick={onLoadEmpty}>Load Empty 8x8</Button>
-        <Button variant="outlined" size="small" onClick={onLoadSimple}>Load Simple Layout</Button>
+        <Button variant="outlined" size="small" onClick={onLoadEmpty}>Empty</Button>
+        <Button variant="outlined" size="small" onClick={onLoadSimple}>Simple</Button>
+
+        {/* --- New I/O Buttons --- */}
+        <Button variant="outlined" size="small" startIcon={<FileUpload />} onClick={onLoadClick}>
+          Load
+        </Button>
+        <Button variant="outlined" size="small" startIcon={<Save />} onClick={onExportClick}>
+          Export
+        </Button>
         
         {/* --- PRO LAYOUT: Dimension Controls --- */}
         <Grid container spacing={2} alignItems="center" sx={{ flexGrow: 1, px: 2 }}>

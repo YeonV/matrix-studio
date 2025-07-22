@@ -17,8 +17,7 @@ export interface IMCell {
 export const MCell: IMCell = { deviceId: '', pixel: 0, group: '' };
 
 export interface ILayoutFile {
-  rows: number;
-  cols: number;
+  name?: string
   matrixData: IMCell[][];
   deviceList?: IDevice[];
 }
@@ -32,4 +31,5 @@ export interface MatrixStudioProps {
   onChange?: (data: IMCell[][]) => void;
   deviceList?: IDevice[];
   onLoadLayout?: (layout: ILayoutFile) => void;
+  onFileDrop?: (file: File) => void;
 }

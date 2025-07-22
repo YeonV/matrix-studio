@@ -1,7 +1,7 @@
 // src/App.tsx
 
-import { useState, useCallback  } from 'react';
-import { Box } from '@mui/material';
+import { useState, useCallback, useRef } from 'react';
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField } from '@mui/material';
 import { MatrixStudio } from '@/components/MatrixStudio/MatrixStudio';
 import { type IMCell, type IDevice, MCell, type ILayoutFile } from '@/components/MatrixStudio/MatrixStudio.types';
 import { DevControls } from '@/components/DevControls';
@@ -40,69 +40,163 @@ const resizeMatrix = (matrix: IMCell[][], newRows: number, newCols: number): IMC
   return newMatrix;
 };
 
+// --- DIALOG SUB-COMPONENTS ---
 
+interface ConfirmLoadDialogProps {
+  open: boolean;
+  layout: ILayoutFile | null;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+const ConfirmLoadDialog = ({ open, layout, onConfirm, onCancel }: ConfirmLoadDialogProps) => {
+  if (!layout) return null;
+  const layoutName = layout.name ? `'${layout.name}'` : 'a new layout';
+  const description = `You are about to load ${layoutName} (${layout.matrixData.length}x${layout.matrixData[0].length}).`;
+  return (
+    <Dialog open={open} onClose={onCancel}>
+      <DialogTitle>Load New Layout?</DialogTitle>
+      <DialogContent>
+        <DialogContentText>{description}</DialogContentText>
+        <DialogContentText sx={{ mt: 1 }}>Your current unsaved work will be overwritten. Are you sure?</DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onCancel}>Cancel</Button>
+        <Button onClick={onConfirm} variant="contained" autoFocus>Load Layout</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
 
-// ... rest of App component ...
+interface ExportDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onExport: (name: string) => void;
+}
+const ExportDialog = ({ open, onClose, onExport }: ExportDialogProps) => {
+  const [name, setName] = useState('My Layout');
+  return (
+    <Dialog open={open} onClose={onClose}>
+      <DialogTitle>Export Layout</DialogTitle>
+      <DialogContent>
+        <TextField
+          autoFocus
+          margin="dense"
+          label="Layout Name"
+          type="text"
+          fullWidth
+          variant="standard"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && onExport(name)}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={() => onExport(name)} disabled={!name}>Export</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// --- MAIN APP COMPONENT ---
+
 function App() {
-  // The "active" state for the MatrixStudio component
   const [activeRows, setActiveRows] = useState(16);
   const [activeCols, setActiveCols] = useState(20);
   const [matrixData, setMatrixData] = useState<IMCell[][]>(() => resizeMatrix(simpleLayoutTemplate, 16, 20));
-  const [availableDevices, setAvailableDevices] = useState<IDevice[]>(initialDevices);
-
-  // The "draft" state bound to the sliders
   const [draftRows, setDraftRows] = useState(activeRows);
   const [draftCols, setDraftCols] = useState(activeCols);
+  const [availableDevices, setAvailableDevices] = useState<IDevice[]>(initialDevices);
+  
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [pendingLayout, setPendingLayout] = useState<ILayoutFile | null>(null);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSave = (data: IMCell[][]) => {
-    console.log("SAVED DATA:", data);
-    alert('Matrix data saved! Check the console.');
+  const handleFile = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        if (data.matrixData) { // Simple validation
+          setPendingLayout(data);
+          setIsConfirmOpen(true);
+        } else { console.error("Invalid layout file"); }
+      } catch (error) { console.error("Failed to parse JSON", error); }
+    };
+    reader.readAsText(file);
+  }, []);
+
+  const handleLoadClick = () => fileInputRef.current?.click();
+  const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) handleFile(file); // Use the master handler
+    event.target.value = '';
   };
 
- const loadLayout = (layout: IMCell[][], newRows: number, newCols: number) => {
+  
+ const confirmLoad = () => { // No useCallback needed here
+    if (pendingLayout) {
+      const { matrixData, deviceList } = pendingLayout;
+      const rows = matrixData.length;
+      const cols = matrixData[0].length;
+      
+      if (deviceList) setAvailableDevices(deviceList);
+      setActiveRows(rows);
+      setActiveCols(cols);
+      setDraftRows(rows);
+      setDraftCols(cols);
+      setMatrixData(resizeMatrix(matrixData, rows, cols));
+    }
+    setIsConfirmOpen(false);
+    setPendingLayout(null);
+  };
+
+    const cancelLoad = () => {
+    setIsConfirmOpen(false);
+    setPendingLayout(null);
+  };
+
+
+  const handleExport = (name: string) => {
+    const layout: ILayoutFile = { name, matrixData, deviceList: availableDevices };
+    const blob = new Blob([JSON.stringify(layout, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name.toLowerCase().replace(/\s+/g, '-') || 'layout'}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setIsExportDialogOpen(false);
+  };
+
+  const handleMatrixChange = useCallback((newData: IMCell[][]) => setMatrixData(newData), []);
+  const loadLayout = (layout: IMCell[][], newRows: number, newCols: number) => {
     setActiveRows(newRows);
     setActiveCols(newCols);
     setDraftRows(newRows);
     setDraftCols(newCols);
-    // Ensure the loaded layout matches the dimensions
     setMatrixData(resizeMatrix(layout, newRows, newCols));
   };
-  const handleLoadEmpty = () => loadLayout(emptyLayoutTemplate, 8, 8);
+const handleLoadEmpty = () => loadLayout(emptyLayoutTemplate, 8, 8);
   const handleLoadSimple = () => loadLayout(simpleLayoutTemplate, 16, 20);
-
-  // --- REFINED RESIZE HANDLER ---
   const handleApplyResize = () => {
     setActiveRows(draftRows);
     setActiveCols(draftCols);
-    // Use the utility to resize the *current* data, not reset it
     setMatrixData(prevData => resizeMatrix(prevData, draftRows, draftCols));
-  };
-
- const handleMatrixChange = useCallback((newData: IMCell[][]) => {
-    setMatrixData(newData);
-  }, []);
-
-const handleLoadLayoutFromFile = useCallback((layoutFile: ILayoutFile) => {
-  const { rows, cols, matrixData, deviceList } = layoutFile;
-  
-  // If the file includes a device list, overwrite the current one.
-  if (deviceList && Array.isArray(deviceList)) {
-    setAvailableDevices(deviceList);
   }
-
-  // Use the rest of the data to update the layout
-  setActiveRows(rows);
-  setActiveCols(cols);
-  setDraftRows(rows);
-  setDraftCols(cols);
-  setMatrixData(resizeMatrix(matrixData, rows, cols));
-  console.log(`Loaded layout: ${rows}x${cols} with ${deviceList ? 'new' : 'existing'} devices.`);
-}, []);
+  
 
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: '#121212' }}>
-      <DevControls
+      <input type="file" ref={fileInputRef} onChange={handleFileSelected} style={{ display: 'none' }} accept=".json" />
+      <ConfirmLoadDialog open={isConfirmOpen} layout={pendingLayout} onConfirm={confirmLoad} onCancel={cancelLoad} />
+      <ExportDialog open={isExportDialogOpen} onClose={() => setIsExportDialogOpen(false)} onExport={handleExport} />
+
+       <DevControls
         onLoadEmpty={handleLoadEmpty}
         onLoadSimple={handleLoadSimple}
         onApplyResize={handleApplyResize}
@@ -110,17 +204,18 @@ const handleLoadLayoutFromFile = useCallback((layoutFile: ILayoutFile) => {
         cols={draftCols}
         onRowsChange={setDraftRows}
         onColsChange={setDraftCols}
+        onLoadClick={handleLoadClick}
+        onExportClick={() => setIsExportDialogOpen(true)}
       />
       <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
         <MatrixStudio
-          key={`${activeRows}-${activeCols}`} 
+          key={`${activeRows}-${activeCols}`}
           initialData={matrixData}
           rows={activeRows}
           cols={activeCols}
-          onSave={handleSave}
           onChange={handleMatrixChange}
           deviceList={availableDevices}
-          onLoadLayout={handleLoadLayoutFromFile}
+          onFileDrop={handleFile} // <-- This now receives the raw File object
         />
       </Box>
     </Box>

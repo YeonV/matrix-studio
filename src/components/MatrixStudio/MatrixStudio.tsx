@@ -22,12 +22,10 @@ const MatrixStudioCore = (props: MatrixStudioProps) => {
   const selection = useAtomValue(selectionAtom);
   const isDetailsVisible = selection.length > 0;
 
-   // We need to get the onLoadLayout handler from props
-  const { onLoadLayout } = props;
 
   // Use our new hook
   const { isDragOver, dropZoneProps } = useFileDrop({ 
-    onLoadLayout: onLoadLayout!, // Pass the handler to the hook
+    onFileDrop: props.onFileDrop!,
   });
 
   return (
