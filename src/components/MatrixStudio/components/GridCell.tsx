@@ -36,7 +36,8 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
   const [selection, setSelection] = useAtom(selectionAtom);
   const activeTool = useAtomValue(activeToolAtom);
   const isInteracting = useAtomValue(isInteractingAtom);
-  const [brushData, setBrushData] = useAtom(brushAtom);
+  // const [brushData, setBrushData] = useAtom(brushAtom);
+  const setBrushData = useSetAtom(brushAtom);
   const setIsInteracting = useSetAtom(isInteractingAtom);
   const pixelGrid = useAtomValue(pixelGridTargetAtom);
   const store = useStore();
@@ -48,17 +49,18 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
   const { deviceList } = useMatrixEditorContext();
 
 const applyPaintAction = () => {
-    const selectedDevice = deviceList.find(d => d.id === brushData.deviceId);
+    // --- THE PERFORMANCE FIX ---
+    // Read the LATEST brush data at the moment of painting, inside the handler.
+    const currentBrushData = store.get(brushAtom);
     
-    // Guard clause: check if pixel is within 0 to count-1 range
-    if (selectedDevice && (brushData.pixel >= selectedDevice.count || brushData.pixel < 0)) {
+    const selectedDevice = deviceList.find(d => d.id === currentBrushData.deviceId);
+    
+    if (selectedDevice && currentBrushData.pixel >= selectedDevice.count) {
       return;
     }
 
-    setCellData(brushData);
+    setCellData(currentBrushData);
     setStrokeAtoms(prev => [...prev, cellAtom]);
-    
-    // Perform increment, decrement, or nothing based on the mode
     if (pixelMode === 'increment') {
       setBrushData(prev => ({ ...prev, pixel: prev.pixel + 1 }));
     } else if (pixelMode === 'decrement') {

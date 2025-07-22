@@ -17,6 +17,7 @@ import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import GridCell from './GridCell';
 
 export const Grid = () => {
+  
   const setPixelGrid = useSetAtom(pixelGridTargetAtom);
   const setIsInteracting = useSetAtom(isInteractingAtom);
   const setStrokeAtoms = useSetAtom(strokeAtomsAtom);
@@ -89,6 +90,11 @@ export const Grid = () => {
 
   const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
     e.currentTarget.style.cursor = 'default';
+    // if (strokeAtoms.length > 0) {
+    //   const currentData = pixelGrid.map(row => row.map(cellAtom => store.get(cellAtom)));
+    //   const newGridOfNewAtoms = currentData.map(row => row.map(cellData => createCellAtom(cellData)));
+    //   setPixelGrid(newGridOfNewAtoms);
+    // }
 
     // --- NEW "ON RELEASE" LOGIC ---
     if (isGroupIncrement && strokeAtoms.length > 0) {
