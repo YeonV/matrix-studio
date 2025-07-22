@@ -6,24 +6,24 @@ import {
   pixelGridTargetAtom,
   isInteractingAtom,
   dragStateAtom,
-  createCellAtom,
-  type CellAtom,
   isGroupAutoIncrementAtom,
   strokeAtomsAtom,
   brushAtom,
+  historyGridDataAtom,
+  type CellAtom,
 } from '../atoms';
-import { MCell } from '../MatrixStudio.types';
+import { MCell, type IMCell } from '../MatrixStudio.types';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import GridCell from './GridCell';
 import { useMatrixEditorContext } from '../MatrixStudioContext';
 import React from 'react';
 
 export const Grid = () => {
-  const setPixelGrid = useSetAtom(pixelGridTargetAtom);
+  const setGridData = useSetAtom(historyGridDataAtom);
   const setIsInteracting = useSetAtom(isInteractingAtom);
   const setStrokeAtoms = useSetAtom(strokeAtomsAtom);
   const [dragState, setDragState] = useAtom(dragStateAtom);
-  const pixelGrid = useAtomValue(pixelGridTargetAtom);
+  const pixelGrid = useAtomValue(pixelGridTargetAtom); // Read-only atom grid for rendering
   const store = useStore();
   const { deviceList } = useMatrixEditorContext();
 
@@ -38,28 +38,36 @@ export const Grid = () => {
   const fullCellSize = CELL_SIZE + GAP_SIZE;
 
   const handleValidateDrop = (targetR: number, targetC: number) => {
-    if (!dragState || !dragState.draggedFrom) return;
+    // --- THE FIX: Correctly get the current grid data ---
+    const historyState = store.get(historyGridDataAtom);
+    const currentGridData = [...historyState.values()][0];
+    
+    if (!dragState || !dragState.draggedFrom || !currentGridData) return;
+
     const { draggedAtoms, draggedFrom } = dragState;
     const deltaR = targetR - draggedFrom.r;
     const deltaC = targetC - draggedFrom.c;
     const draggedAtomsSet = new Set(draggedAtoms);
+    
+    const originalPositions = new Map<CellAtom, { r: number, c: number }>();
+    pixelGrid.forEach((row, r) => row.forEach((atom, c) => {
+      if (draggedAtomsSet.has(atom)) originalPositions.set(atom, { r, c });
+    }));
+    
     const newDropPreview: { r: number; c: number; status: 'valid' | 'colliding' }[] = [];
     for (const atom of draggedAtoms) {
-      let originalR = -1, originalC = -1;
-      for (let r = 0; r < rows; r++) {
-        const c = pixelGrid[r].indexOf(atom);
-        if (c !== -1) { originalR = r; originalC = c; break; }
-      }
-      if (originalR === -1) continue;
-      const newR = originalR + deltaR;
-      const newC = originalC + deltaC;
+      const originalPos = originalPositions.get(atom);
+      if (!originalPos) continue;
+
+      const newR = originalPos.r + deltaR;
+      const newC = originalPos.c + deltaC;
       let status: 'valid' | 'colliding' = 'valid';
       if (newR < 0 || newR >= rows || newC < 0 || newC >= cols) {
         status = 'colliding';
       } else {
-        const targetCellAtom = pixelGrid[newR][newC];
-        const targetCellData = store.get(targetCellAtom);
-        if (targetCellData.deviceId !== '' && !draggedAtomsSet.has(targetCellAtom)) {
+        const targetCellData = currentGridData[newR]?.[newC];
+        const targetCellAtom = pixelGrid[newR]?.[newC];
+        if (targetCellData && targetCellData.deviceId !== '' && !draggedAtomsSet.has(targetCellAtom)) {
           status = 'colliding';
         }
       }
@@ -74,39 +82,56 @@ export const Grid = () => {
     const { draggedAtoms, draggedFrom } = dragState;
     const deltaR = dropTargetR - draggedFrom.r;
     const deltaC = dropTargetC - draggedFrom.c;
-    setPixelGrid(grid => {
-      const positions: { r: number, c: number, atom: CellAtom }[] = [];
-      grid.forEach((row, r) => row.forEach((atom, c) => {
-        if (draggedAtoms.includes(atom)) positions.push({ r, c, atom });
+
+    setGridData(prevGrid => {
+      const draggedAtomsSet = new Set(draggedAtoms);
+      const positions: { r: number, c: number, data: IMCell }[] = [];
+      
+      prevGrid.forEach((row, r) => row.forEach((cellData, c) => {
+        const cellAtom = pixelGrid[r]?.[c];
+        if (cellAtom && draggedAtomsSet.has(cellAtom)) {
+          positions.push({ r, c, data: cellData });
+        }
       }));
-      const nextGrid = grid.map(r => [...r]);
-      for (const pos of positions) nextGrid[pos.r][pos.c] = createCellAtom(MCell);
+
+      const newGrid = prevGrid.map(r => [...r]);
+      for (const pos of positions) newGrid[pos.r][pos.c] = MCell;
       for (const pos of positions) {
         const newR = pos.r + deltaR;
         const newC = pos.c + deltaC;
         if (newR >= 0 && newR < rows && newC >= 0 && newC < cols) {
-          nextGrid[newR][newC] = pos.atom;
+          newGrid[newR][newC] = pos.data;
         }
       }
-      return nextGrid;
+      return newGrid;
     });
   };
 
   const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
     e.currentTarget.style.cursor = 'default';
+
     if (isGroupIncrement && strokeAtoms.length > 0) {
       const newGroupId = `g-${Date.now().toString(36)}`;
-      strokeAtoms.forEach(atom => {
-        const currentData = store.get(atom);
-        store.set(atom, { ...currentData, group: newGroupId });
+      const strokeAtomsSet = new Set(strokeAtoms);
+      
+      setGridData(prevGrid => {
+        const newGrid = prevGrid.map(r => [...r]);
+        pixelGrid.forEach((row, r) => row.forEach((atom, c) => {
+          if (strokeAtomsSet.has(atom)) {
+            newGrid[r][c] = { ...newGrid[r][c], group: newGroupId };
+          }
+        }));
+        return newGrid;
       });
       setBrushData(prev => ({ ...prev, group: newGroupId }));
     }
+
     const brushValue = store.get(brushAtom);
     const selectedDevice = deviceList.find(d => d.id === brushValue.deviceId);
     if (selectedDevice && brushValue.pixel >= selectedDevice.count) {
       setBrushData(prev => ({ ...prev, pixel: selectedDevice.count - 1 }));
     }
+
     setIsInteracting(false);
     setDragState(null);
     setStrokeAtoms([]);

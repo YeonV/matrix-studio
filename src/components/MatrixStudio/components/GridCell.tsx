@@ -1,3 +1,5 @@
+// src/components/MatrixStudio/components/GridCell.tsx
+
 import { useAtom, useSetAtom, useAtomValue, useStore } from 'jotai';
 import { useTheme } from '@mui/material/styles';
 import {
@@ -9,6 +11,7 @@ import {
   selectionAtom,
   isInteractingAtom,
   groupMapAtom,
+  historyGridDataAtom, // <-- IMPORT THE HISTORY ATOM
   type CellAtom,
 } from '../atoms';
 import { MCell } from '../MatrixStudio.types';
@@ -29,17 +32,25 @@ interface GridCellProps {
 }
 
 const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: GridCellProps) => {
-  const [cellData, setCellData] = useAtom(cellAtom);
+  // We still read the cell's own data for display, but we no longer get its setter.
+  const [cellData] = useAtom(cellAtom);
   const dragState = useAtomValue(dragStateAtom);
-  const [selection, setSelection] = useAtom(selectionAtom);
+  const selection = useAtomValue(selectionAtom);
   const isInteracting = useAtomValue(isInteractingAtom);
   const store = useStore();
   const theme = useTheme();
   const { deviceList } = useMatrixEditorContext();
+
+  // --- THE ARCHITECTURAL CHANGE ---
+  // All write operations must target the main history atom.
+  const setGridData = useSetAtom(historyGridDataAtom);
+
   const setDragState = useSetAtom(dragStateAtom);
+  const setSelection = useSetAtom(selectionAtom);
   const setBrushData = useSetAtom(brushAtom);
   const setIsInteracting = useSetAtom(isInteractingAtom);
   const setStrokeAtoms = useSetAtom(strokeAtomsAtom);
+  
   const activeTool = useAtomValue(activeToolAtom);
   const pixelMode = useAtomValue(pixelIncrementModeAtom);
   const groupMap = useAtomValue(groupMapAtom); 
@@ -49,13 +60,31 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
     const selectedDevice = deviceList.find(d => d.id === currentBrushData.deviceId);
     if (selectedDevice && (currentBrushData.pixel >= selectedDevice.count || currentBrushData.pixel < 0)) return;
 
-    setCellData(currentBrushData);
-    setStrokeAtoms(prev => [...prev, cellAtom]);
-    if (pixelMode === 'increment') {
-      setBrushData(prev => ({ ...prev, pixel: prev.pixel + 1 }));
-    } else if (pixelMode === 'decrement') {
-      setBrushData(prev => ({ ...prev, pixel: prev.pixel - 1 }));
-    }
+    // We now update the root data grid.
+    setGridData(prevGrid => {
+      // Don't paint if the cell is already occupied.
+      if (prevGrid[rowIndex]?.[colIndex]?.deviceId) return prevGrid;
+
+      const newGrid = prevGrid.map(r => [...r]);
+      newGrid[rowIndex][colIndex] = currentBrushData;
+      setStrokeAtoms(prev => [...prev, cellAtom]); // Still track the atom for grouping
+      
+      if (pixelMode === 'increment') {
+        setBrushData(prev => ({ ...prev, pixel: prev.pixel + 1 }));
+      } else if (pixelMode === 'decrement') {
+        setBrushData(prev => ({ ...prev, pixel: prev.pixel - 1 }));
+      }
+      return newGrid;
+    });
+  };
+
+  const applyEraseAction = () => {
+    setGridData(prevGrid => {
+      if (!prevGrid[rowIndex]?.[colIndex]?.deviceId) return prevGrid;
+      const newGrid = prevGrid.map(r => [...r]);
+      newGrid[rowIndex][colIndex] = MCell;
+      return newGrid;
+    });
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -72,7 +101,7 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
         setDragState({ type: 'paint', isDragging: false, draggedAtoms: [], draggedFrom: null, isCollision: false, dropPreview: [] });
       }
     } else if (activeTool === 'erase') {
-      if (cellData.deviceId) setCellData(MCell);
+      if (cellData.deviceId) applyEraseAction();
     }
   };
 
@@ -82,7 +111,7 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
     if (dragState?.type === 'paint' && !cellData.deviceId) {
       applyPaintAction();
     } else if (activeTool === 'erase' && cellData.deviceId) {
-      setCellData(MCell);
+      applyEraseAction();
     }
   };
 
@@ -95,18 +124,12 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
       const isAlreadySelected = selection.has(cellAtom);
       if (e.ctrlKey) {
         const newSelection = new Set(selection);
-        if (isAlreadySelected) {
-          newSelection.delete(cellAtom);
-        } else {
-          newSelection.add(cellAtom);
-        }
+        if (isAlreadySelected) newSelection.delete(cellAtom);
+        else newSelection.add(cellAtom);
         setSelection(newSelection);
       } else {
-        if (isAlreadySelected) {
-          setSelection(new Set());
-        } else {
-          setSelection(new Set([cellAtom]));
-        }
+        if (isAlreadySelected) setSelection(new Set());
+        else setSelection(new Set([cellAtom]));
       }
     }
   };
@@ -115,15 +138,16 @@ const GridCell = ({ cellAtom, rowIndex, colIndex, onDrop, onValidateDrop }: Grid
     if (activeTool !== 'paint' || !cellData.deviceId || !cellData.group) return;
     const groupAtoms = groupMap.get(cellData.group) || [];
     setSelection(new Set(groupAtoms));
-  };
+};
+
   const previewInfo = dragState?.type === 'move' && dragState.isDragging ? dragState.dropPreview.find(p => p.r === rowIndex && p.c === colIndex) : null;
   const getHighlightStyle = () => {
     if (!previewInfo) return {};
-    if (previewInfo.status === 'valid') return { backgroundColor: 'rgba(0, 188, 200, 0.2)', border: `1px dashed ${theme.palette.primary.main}` };
-    if (previewInfo.status === 'colliding') return { backgroundColor: `rgba(255, 0, 0, 0.2)`, border: `1px dashed ${theme.palette.error.main}` };
+    if (previewInfo.status === 'valid') return { backgroundColor: 'rgba(0, 188, 212, 0.2)', border: `1px dashed ${theme.palette.primary.main}` };
+    if (previewInfo.status === 'colliding') return { backgroundColor: `rgba(${theme.palette.error.main.replace('rgb(','').replace(')','')}, 0.2)`, border: `1px dashed ${theme.palette.error.main}` };
     return {};
   };
-
+  
   const getCursor = () => {
     if (dragState?.type === 'move' && dragState.isDragging) return dragState.isCollision ? 'not-allowed' : 'grabbing';
     if (activeTool === 'paint') {

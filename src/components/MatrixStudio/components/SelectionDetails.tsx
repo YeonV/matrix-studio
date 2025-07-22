@@ -1,15 +1,31 @@
-import { useAtom, useAtomValue, useStore } from 'jotai';
+// src/components/MatrixStudio/components/SelectionDetails.tsx
+
+import { useAtom, useAtomValue, useSetAtom, useStore } from 'jotai';
 import { useMemo, useState, useEffect } from 'react';
 import { Box, Stack, TextField, Typography, Autocomplete, Button } from '@mui/material';
-import { selectionAtom, type CellAtom } from '../atoms';
+import { selectionAtom, type CellAtom, historyGridDataAtom, pixelGridTargetAtom } from '../atoms';
 import { useMatrixEditorContext } from '../MatrixStudioContext';
 
 const SinglePixelEditor = ({ cellAtom }: { cellAtom: CellAtom }) => {
-  const [cellData, setCellData] = useAtom(cellAtom);
+  const [cellData] = useAtom(cellAtom); // Read-only to display current data
   const { deviceList } = useMatrixEditorContext();
+  const setGridData = useSetAtom(historyGridDataAtom);
+  const pixelGrid = useAtomValue(pixelGridTargetAtom);
 
   const handleChange = (field: string, value: string | number) => {
-    setCellData(prev => ({ ...prev, [field]: value }));
+    setGridData(prevGrid => {
+      // Find the r, c of the atom we're editing
+      for (let r = 0; r < pixelGrid.length; r++) {
+        const c = pixelGrid[r].indexOf(cellAtom);
+        if (c !== -1) {
+          const newGrid = prevGrid.map(row => [...row]);
+          const newCellData = { ...newGrid[r][c], [field]: value };
+          newGrid[r][c] = newCellData;
+          return newGrid;
+        }
+      }
+      return prevGrid; // Should not happen
+    });
   };
 
   const selectedDevice = deviceList.find(d => d.id === cellData.deviceId);
@@ -59,12 +75,12 @@ const SinglePixelEditor = ({ cellAtom }: { cellAtom: CellAtom }) => {
   );
 };
 
-// --- THIS COMPONENT IS NOW CORRECTED ---
 const MultiPixelEditor = ({ selection }: { selection: Set<CellAtom> }) => {
   const { deviceList } = useMatrixEditorContext();
-  const store = useStore();
+  const setGridData = useSetAtom(historyGridDataAtom);
+  const pixelGrid = useAtomValue(pixelGridTargetAtom);
+  const store = useStore(); // For reading initial common state
   
-  // Convert the Set to an array once, and memoize it.
   const selectionArray = useMemo(() => Array.from(selection), [selection]);
 
   const commonState = useMemo(() => {
@@ -90,11 +106,29 @@ const MultiPixelEditor = ({ selection }: { selection: Set<CellAtom> }) => {
   }, [commonState]);
 
   const handleBatchUpdate = (field: 'deviceId' | 'group', value: string) => {
-    selectionArray.forEach(atom => store.set(atom, prev => ({ ...prev, [field]: value })));
+    setGridData(prevGrid => {
+      const newGrid = prevGrid.map(row => [...row]);
+      pixelGrid.forEach((row, r) => row.forEach((atom, c) => {
+        if (selection.has(atom)) {
+          newGrid[r][c] = { ...newGrid[r][c], [field]: value };
+        }
+      }));
+      return newGrid;
+    });
   };
 
   const handleRenumber = () => {
-    selectionArray.forEach((atom, index) => store.set(atom, prev => ({ ...prev, pixel: startPixel + index })));
+    setGridData(prevGrid => {
+      const newGrid = prevGrid.map(row => [...row]);
+      let count = 0;
+      pixelGrid.forEach((row, r) => row.forEach((atom, c) => {
+        if (selection.has(atom)) {
+          newGrid[r][c] = { ...newGrid[r][c], pixel: startPixel + count };
+          count++;
+        }
+      }));
+      return newGrid;
+    });
   };
   
   return (
@@ -111,13 +145,7 @@ const MultiPixelEditor = ({ selection }: { selection: Set<CellAtom> }) => {
         }}
         onInputChange={(_event, newInputValue) => setDeviceId(newInputValue)}
         renderInput={(params) => (
-          <TextField
-            {...params}
-            label="Device ID"
-            variant="filled"
-            size="small"
-            placeholder={commonState.commonDeviceId === null ? 'Multiple Values' : ''}
-          />
+          <TextField {...params} label="Device ID" variant="filled" size="small" placeholder={commonState.commonDeviceId === null ? 'Multiple Values' : ''} />
         )}
       />
       <TextField
@@ -152,7 +180,6 @@ export const SelectionDetails = () => {
   const selection = useAtomValue(selectionAtom);
   const hasSingleSelection = selection.size === 1;
   const hasMultipleSelection = selection.size > 1;
-
   const singleSelectedAtom = hasSingleSelection ? selection.values().next().value : null;
 
   return (

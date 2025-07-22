@@ -1,13 +1,46 @@
+// src/components/MatrixStudio/atoms.ts
+
 import { atom } from 'jotai';
 import { withHistory } from 'jotai-history';
 import type { IMCell } from './MatrixStudio.types';
 import { MCell } from './MatrixStudio.types';
 
+// ==================================================================
+// == 1. SOURCE OF TRUTH (DATA)
+// ==================================================================
+
+export const gridDataAtom = atom<IMCell[][]>([]);
+export const historyGridDataAtom = withHistory(gridDataAtom, 512);
+
+// Helper atom to get the latest data snapshot CORRECTLY.
+export const currentGridDataAtom = atom<IMCell[][]>((get) => {
+  const history = get(historyGridDataAtom);
+  // The correct way to get the latest value from the history's IterableIterator
+  const allValues = [...history.values()];
+  return allValues[0] || [];
+});
+
+
+// ==================================================================
+// == 2. DERIVED STATE FOR UI (ATOMS)
+// ==================================================================
+
 export const createCellAtom = (initialValue: IMCell = MCell) => atom(initialValue);
 export type CellAtom = ReturnType<typeof createCellAtom>;
 
-export const pixelGridTargetAtom = atom<CellAtom[][]>([]);
-export const pixelGridHistoryAtom = withHistory(pixelGridTargetAtom, 20);
+// This read-only atom creates our "atom of atoms" grid for rendering.
+// It is DERIVED from our data source of truth.
+export const pixelGridTargetAtom = atom<CellAtom[][]>((get) => {
+  const gridData = get(currentGridDataAtom);
+  if (!gridData) return [];
+  // For now, we accept the re-creation of atoms. We can optimize later if needed.
+  return gridData.map(row => row.map(cellData => createCellAtom(cellData)));
+});
+
+
+// ==================================================================
+// == 3. INTERACTION AND TOOL STATE (UNCHANGED)
+// ==================================================================
 
 export type EditorTool = 'paint' | 'erase';
 export const activeToolAtom = atom<EditorTool>('paint');
@@ -16,8 +49,6 @@ export const isInteractingAtom = atom<boolean>(false);
 
 export const brushAtom = atom<IMCell>({ deviceId: 'paint-brush', pixel: 0, group: 'group-1' });
 
-// --- YOUR CORRECT FIX ---
-// The selection is a Set, initialized with the correct type.
 export const selectionAtom = atom<Set<CellAtom>>(new Set<CellAtom>());
 
 export const dragStateAtom = atom<{
@@ -35,22 +66,27 @@ export const isGroupAutoIncrementAtom = atom(false);
 export const strokeAtomsAtom = atom<CellAtom[]>([]);
 export const lastPaintedCellAtom = atom<{ r: number; c: number } | null>(null);
 
-export const gridDataAtom = atom((get) => {
-  const gridOfAtoms = get(pixelGridTargetAtom);
-  return gridOfAtoms.map(row => row.map(cellAtom => get(cellAtom)));
-});
+
+// ==================================================================
+// == 4. DERIVED STATE FOR PERFORMANCE (OPTIMIZATIONS)
+// ==================================================================
 
 export const groupMapAtom = atom((get) => {
+  const gridData = get(currentGridDataAtom); // Use the correct data atom
   const gridOfAtoms = get(pixelGridTargetAtom);
   const map = new Map<string, CellAtom[]>();
-  gridOfAtoms.forEach(row => {
-    row.forEach(atom => {
-      const data = get(atom);
-      if (data.group) {
-        if (!map.has(data.group)) {
-          map.set(data.group, []);
+
+  // Now gridData is correctly typed as IMCell[][]
+  gridData.forEach((row, r) => {
+    row.forEach((cellData, c) => {
+      if (cellData.group) {
+        if (!map.has(cellData.group)) {
+          map.set(cellData.group, []);
         }
-        map.get(data.group)!.push(atom);
+        const cellAtom = gridOfAtoms[r]?.[c];
+        if (cellAtom) {
+          map.get(cellData.group)!.push(cellAtom);
+        }
       }
     });
   });
