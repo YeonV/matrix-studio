@@ -16,6 +16,13 @@ export interface IMCell {
 // The default empty cell state constant
 export const MCell: IMCell = { deviceId: '', pixel: 0, group: '' };
 
+export interface ILayoutFile {
+  rows: number;
+  cols: number;
+  matrixData: IMCell[][];
+  deviceList?: IDevice[];
+}
+
 // The props our main component will accept
 export interface MatrixStudioProps {
   rows?: number;
@@ -23,5 +30,6 @@ export interface MatrixStudioProps {
   initialData?: IMCell[][];
   onSave?: (data: IMCell[][]) => void;
   onChange?: (data: IMCell[][]) => void;
-  deviceList?: IDevice[]; // <-- UPDATED to use the new type
+  deviceList?: IDevice[];
+  onLoadLayout?: (layout: ILayoutFile) => void;
 }

@@ -1,4 +1,4 @@
-import { Box, Button, Stack, Typography, IconButton, Tooltip } from '@mui/material';
+import { Box, Button, Stack, Typography, IconButton, Tooltip, Slider, Grid, TextField } from '@mui/material';
 import {
   InfoOutlined,
   ZoomIn,
@@ -8,7 +8,6 @@ import {
   CropFree,
   ViewModule,
 } from '@mui/icons-material';
-import React from 'react';
 
 // --- The New, Awesome Tooltip Content ---
 const controlData = [
@@ -81,16 +80,38 @@ const InfoTooltipContent = () => (
 // --- End of Tooltip Content ---
 
 
-// Define the props our component will accept
 interface DevControlsProps {
   onLoadEmpty: () => void;
   onLoadSimple: () => void;
+  onApplyResize: () => void;
+  rows: number;
+  cols: number;
+  onRowsChange: (value: number) => void;
+  onColsChange: (value: number) => void;
 }
 
-export const DevControls = ({ onLoadEmpty, onLoadSimple }: DevControlsProps) => {
+export const DevControls = (props: DevControlsProps) => {
+  const {
+    onLoadEmpty,
+    onLoadSimple,
+    onApplyResize,
+    rows,
+    cols,
+    onRowsChange,
+    onColsChange,
+  } = props;
+
+  // Handler for TextField input to ensure we use numbers
+  const handleNumericInputChange = (setter: (value: number) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    if (!isNaN(value)) {
+      setter(value);
+    }
+  };
+
   return (
     <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
         <Typography variant="h5" component="h1">MatrixStudio Dev Playground</Typography>
         <Tooltip
           title={<InfoTooltipContent />}
@@ -112,9 +133,59 @@ export const DevControls = ({ onLoadEmpty, onLoadSimple }: DevControlsProps) => 
           </IconButton>
         </Tooltip>
       </Stack>
-      <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
-        <Button variant="outlined" onClick={onLoadEmpty}>Load Empty 8x8</Button>
-        <Button variant="outlined" onClick={onLoadSimple}>Load Simple Layout</Button>
+      <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2 }}>
+        {/* --- Layout Buttons --- */}
+        <Button variant="outlined" size="small" onClick={onLoadEmpty}>Load Empty 8x8</Button>
+        <Button variant="outlined" size="small" onClick={onLoadSimple}>Load Simple Layout</Button>
+        
+        {/* --- PRO LAYOUT: Dimension Controls --- */}
+        <Grid container spacing={2} alignItems="center" sx={{ flexGrow: 1, px: 2 }}>
+          <Grid size={{xs:6}}>
+            <Typography variant="caption" id="rows-slider" gutterBottom>
+              Rows ({rows})
+            </Typography>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Slider
+                aria-labelledby="rows-slider"
+                value={rows}
+                onChange={(e, value) => onRowsChange(value as number)}
+                min={1}
+                max={100}
+                size="small"
+              />
+              <TextField
+                value={rows}
+                onChange={handleNumericInputChange(onRowsChange)}
+                size="small"
+                inputProps={{ step: 1, min: 1, max: 100, type: 'number' }}
+                sx={{ width: '80px' }}
+              />
+            </Stack>
+          </Grid>
+          <Grid size={{xs:6}}>
+            <Typography variant="caption" id="cols-slider" gutterBottom>
+              Cols ({cols})
+            </Typography>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Slider
+                aria-labelledby="cols-slider"
+                value={cols}
+                onChange={(e, value) => onColsChange(value as number)}
+                min={1}
+                max={100}
+                size="small"
+              />
+              <TextField
+                value={cols}
+                onChange={handleNumericInputChange(onColsChange)}
+                size="small"
+                inputProps={{ step: 1, min: 1, max: 100, type: 'number' }}
+                sx={{ width: '80px' }}
+              />
+            </Stack>
+          </Grid>
+        </Grid>
+        <Button variant="contained" onClick={onApplyResize}>Apply</Button>
       </Stack>
     </Box>
   );

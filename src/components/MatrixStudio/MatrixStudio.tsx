@@ -12,6 +12,9 @@ import { MatrixStudioContext } from './MatrixStudioContext';
 import { DragPreview } from './components/DragPreview';
 import { selectionAtom } from './atoms'; // <-- IMPORT selectionAtom
 import { SelectionDetails } from './components/SelectionDetails'; // <-- IMPORT SelectionDetails
+import { StateBridge } from '../StateBridge';
+import { useFileDrop } from './hooks/useFileDrop';
+import { FileDropOverlay } from './components/FileDropOverlay';
 
 const MatrixStudioCore = (props: MatrixStudioProps) => {
   const matrixApi = useMatrixStudio(props);
@@ -19,8 +22,17 @@ const MatrixStudioCore = (props: MatrixStudioProps) => {
   const selection = useAtomValue(selectionAtom);
   const isDetailsVisible = selection.length > 0;
 
+   // We need to get the onLoadLayout handler from props
+  const { onLoadLayout } = props;
+
+  // Use our new hook
+  const { isDragOver, dropZoneProps } = useFileDrop({ 
+    onLoadLayout: onLoadLayout!, // Pass the handler to the hook
+  });
+
   return (
     <MatrixStudioContext.Provider value={matrixApi}>
+       <StateBridge onChange={props.onChange} />
       {/* <DevTools /> */}
       <DragPreview />
       {/* This is now a 3-column (or 2-column) layout */}
@@ -31,7 +43,8 @@ const MatrixStudioCore = (props: MatrixStudioProps) => {
         </Box>
 
         {/* --- Column 2: Main Grid Content --- */}
-        <Box sx={{ flexGrow: 1, p: 2, overflow: 'auto' }}>
+        <Box sx={{ flexGrow: 1, p: 2, overflow: 'auto', position: 'relative' }} {...dropZoneProps}>
+          <FileDropOverlay isDragOver={isDragOver} />
           <Box sx={{ width: '100%', height: '100%' }}>
             <Grid />
           </Box>

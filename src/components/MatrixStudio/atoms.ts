@@ -34,3 +34,8 @@ export type PixelIncrementMode = 'increment' | 'decrement' | 'off';
 export const pixelIncrementModeAtom = atom<PixelIncrementMode>('increment')
 export const isGroupAutoIncrementAtom = atom(false);
 export const strokeAtomsAtom = atom<CellAtom[]>([]);
+
+export const gridDataAtom = atom((get) => {
+  const gridOfAtoms = get(pixelGridTargetAtom);
+  return gridOfAtoms.map(row => row.map(cellAtom => get(cellAtom)));
+});
