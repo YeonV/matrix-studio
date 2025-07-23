@@ -1,7 +1,7 @@
 // src/components/MatrixStudio/components/BrushSettings.tsx
 
 import { useAtom } from 'jotai';
-import { Box, Divider, Stack, TextField, Typography, InputAdornment, IconButton, Tooltip, Autocomplete } from '@mui/material';
+import { Box, Stack, TextField, Typography, InputAdornment, IconButton, Tooltip, Autocomplete } from '@mui/material';
 import { AddBox, Block, DynamicFeed, IndeterminateCheckBox } from '@mui/icons-material';
 import { brushAtom, isGroupAutoIncrementAtom, type PixelIncrementMode, pixelIncrementModeAtom } from '../atoms';
 import { useMatrixEditorContext } from '../MatrixStudioContext';
@@ -44,7 +44,6 @@ export const BrushSettings = () => {
 
   return (
     <Box>
-      <Divider sx={{ my: 2 }} />
       <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
         Brush Settings
       </Typography>

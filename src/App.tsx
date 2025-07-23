@@ -4,7 +4,8 @@ import { useState, useCallback, useRef } from 'react';
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField } from '@mui/material';
 import { MatrixStudio } from '@/components/MatrixStudio/MatrixStudio';
 import { type IMCell, type IDevice, MCell, type ILayoutFile } from '@/components/MatrixStudio/MatrixStudio.types';
-import { DevControls } from '@/components/DevControls';
+import { ResizeDialog } from './components/MatrixStudio/components/ResizeDialog';
+
 
 const simpleLayoutTemplate: IMCell[][] = [
   [{ deviceId: 'dev-1', pixel: 0, group: 'group-1' }, { deviceId: 'dev-1', pixel: 1, group: 'group-1' }],
@@ -107,6 +108,7 @@ function App() {
   const [draftRows, setDraftRows] = useState(activeRows);
   const [draftCols, setDraftCols] = useState(activeCols);
   const [availableDevices, setAvailableDevices] = useState<IDevice[]>(initialDevices);
+  const [isResizeDialogOpen, setIsResizeDialogOpen] = useState(false);
   
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [pendingLayout, setPendingLayout] = useState<ILayoutFile | null>(null);
@@ -147,6 +149,7 @@ function App() {
       setDraftRows(rows);
       setDraftCols(cols);
       setMatrixData(resizeMatrix(matrixData, rows, cols));
+      setIsResizeDialogOpen(false);
     }
     setIsConfirmOpen(false);
     setPendingLayout(null);
@@ -186,6 +189,7 @@ const handleLoadEmpty = () => loadLayout(emptyLayoutTemplate, 8, 8);
     setActiveRows(draftRows);
     setActiveCols(draftCols);
     setMatrixData(prevData => resizeMatrix(prevData, draftRows, draftCols));
+    setIsResizeDialogOpen(false);
   }
   
 
@@ -195,17 +199,14 @@ const handleLoadEmpty = () => loadLayout(emptyLayoutTemplate, 8, 8);
       <input type="file" ref={fileInputRef} onChange={handleFileSelected} style={{ display: 'none' }} accept=".json" />
       <ConfirmLoadDialog open={isConfirmOpen} layout={pendingLayout} onConfirm={confirmLoad} onCancel={cancelLoad} />
       <ExportDialog open={isExportDialogOpen} onClose={() => setIsExportDialogOpen(false)} onExport={handleExport} />
-
-       <DevControls
-        onLoadEmpty={handleLoadEmpty}
-        onLoadSimple={handleLoadSimple}
-        onApplyResize={handleApplyResize}
+      <ResizeDialog
+        open={isResizeDialogOpen}
+        onClose={() => setIsResizeDialogOpen(false)}
+        onApply={handleApplyResize}
         rows={draftRows}
         cols={draftCols}
         onRowsChange={setDraftRows}
         onColsChange={setDraftCols}
-        onLoadClick={handleLoadClick}
-        onExportClick={() => setIsExportDialogOpen(true)}
       />
       <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
         <MatrixStudio
@@ -216,6 +217,11 @@ const handleLoadEmpty = () => loadLayout(emptyLayoutTemplate, 8, 8);
           onChange={handleMatrixChange}
           deviceList={availableDevices}
           onFileDrop={handleFile} // <-- This now receives the raw File object
+          onLoadEmpty={handleLoadEmpty}
+          onLoadSimple={handleLoadSimple}
+          onLoadClick={handleLoadClick}
+          onExportClick={() => setIsExportDialogOpen(true)}
+          onResizeClick={() => setIsResizeDialogOpen(true)}
         />
       </Box>
     </Box>
