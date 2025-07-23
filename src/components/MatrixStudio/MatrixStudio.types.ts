@@ -33,8 +33,9 @@ export interface MatrixStudioProps {
   onLoadLayout?: (layout: ILayoutFile) => void;
   onFileDrop?: (file: File) => void;
   onLoadEmpty: () => void;
-  onLoadSimple: () => void;
   onLoadClick: () => void;
   onExportClick: () => void;
   onResizeClick: () => void;
+  ledFxOrigin?: string | null;
+  onSaveAndReturn?: () => void;
 }

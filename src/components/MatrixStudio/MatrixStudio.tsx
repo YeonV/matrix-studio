@@ -24,7 +24,7 @@ const MatrixStudioCore = (props: MatrixStudioProps) => {
   const { isDragOver, dropZoneProps } = useFileDrop({ 
     onFileDrop: props.onFileDrop!,
   });
-
+  console.log(props.ledFxOrigin)
   return (
     <MatrixStudioContext.Provider value={matrixApi}>
       <StateBridge onChange={props.onChange} />
@@ -38,7 +38,8 @@ const MatrixStudioCore = (props: MatrixStudioProps) => {
           onLoadClick={props.onLoadClick}
           onExportClick={props.onExportClick}
           onLoadEmpty={props.onLoadEmpty}
-          onLoadSimple={props.onLoadSimple}
+          ledFxOrigin={props.ledFxOrigin}
+          onSaveAndReturn={props.onSaveAndReturn}
         />
       {/* This is now a 3-column (or 2-column) layout */}
       <Stack direction="row" sx={{ height: '100%', width: '100%' }}>

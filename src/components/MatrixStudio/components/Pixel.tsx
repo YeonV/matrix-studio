@@ -36,8 +36,17 @@ const PixelComponent = ({ cellAtom }: PixelProps) => {
     <Box sx={dynamicStyles}>
       {cellData.deviceId && (
         <>
-          <Typography variant="caption" sx={{ fontSize: '0.6rem' }} noWrap>{cellData.deviceId}</Typography>
+          {isSelected && (
+            <Typography variant="caption" sx={{ fontSize: '0.4rem', pb: 0.2, opacity: 0.7 }} noWrap>
+              {cellData.deviceId}
+            </Typography>
+          )}
           <Typography variant="h6" sx={{ lineHeight: 1 }}>{cellData.pixel}</Typography>
+          {isSelected && (
+            <Typography variant="caption" sx={{ fontSize: '0.4rem', pt: 0.1, opacity: 0.7 }} noWrap>
+              {cellData.group || ' '}
+            </Typography>
+          )}
         </>
       )}
     </Box>

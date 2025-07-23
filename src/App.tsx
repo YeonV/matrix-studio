@@ -1,6 +1,6 @@
 // src/App.tsx
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField } from '@mui/material';
 import { MatrixStudio } from '@/components/MatrixStudio/MatrixStudio';
 import { type IMCell, type IDevice, MCell, type ILayoutFile } from '@/components/MatrixStudio/MatrixStudio.types';
@@ -105,6 +105,7 @@ function App() {
   const [activeRows, setActiveRows] = useState(16);
   const [activeCols, setActiveCols] = useState(20);
   const [matrixData, setMatrixData] = useState<IMCell[][]>(() => resizeMatrix(simpleLayoutTemplate, 16, 20));
+  const [forceUpdate, setForceUpdate] = useState(0);
   const [draftRows, setDraftRows] = useState(activeRows);
   const [draftCols, setDraftCols] = useState(activeCols);
   const [availableDevices, setAvailableDevices] = useState<IDevice[]>(initialDevices);
@@ -114,6 +115,7 @@ function App() {
   const [pendingLayout, setPendingLayout] = useState<ILayoutFile | null>(null);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [ledFxOrigin, setLedFxOrigin] = useState<string | null>(null);
 
   const handleFile = useCallback((file: File) => {
     const reader = new FileReader();
@@ -174,6 +176,17 @@ function App() {
     URL.revokeObjectURL(url);
     setIsExportDialogOpen(false);
   };
+  const handleSaveAndReturn = () => {
+    if (ledFxOrigin) {
+      window.opener.postMessage({
+        source: 'MatrixStudio',
+        action: 'saveAndReturn',
+        matrixData,
+      }, ledFxOrigin);
+    }
+    window.close();
+
+  };
 
   const handleMatrixChange = useCallback((newData: IMCell[][]) => setMatrixData(newData), []);
   const loadLayout = (layout: IMCell[][], newRows: number, newCols: number) => {
@@ -182,9 +195,9 @@ function App() {
     setDraftRows(newRows);
     setDraftCols(newCols);
     setMatrixData(resizeMatrix(layout, newRows, newCols));
+    setForceUpdate(prev => prev + 1); 
   };
-const handleLoadEmpty = () => loadLayout(emptyLayoutTemplate, 8, 8);
-  const handleLoadSimple = () => loadLayout(simpleLayoutTemplate, 16, 20);
+  const handleLoadEmpty = () => loadLayout(emptyLayoutTemplate, activeRows, activeCols);  
   const handleApplyResize = () => {
     setActiveRows(draftRows);
     setActiveCols(draftCols);
@@ -192,6 +205,24 @@ const handleLoadEmpty = () => loadLayout(emptyLayoutTemplate, 8, 8);
     setIsResizeDialogOpen(false);
   }
   
+  useEffect(() => {
+    window.addEventListener('message', (e) => {
+      if (e.data.source === 'LedFx' && e.data.matrixData && pendingLayout === null) {
+        console.log('Received matrix data from LedFx:', e.data.matrixData, e.origin);
+        setLedFxOrigin(e.origin || null);
+        const matrixData = e.data.matrixData
+        const rows = matrixData.length;
+        const cols = matrixData[0].length;          
+        
+        setActiveRows(rows);
+        setActiveCols(cols);
+        setDraftRows(rows);
+        setDraftCols(cols);
+        setMatrixData(resizeMatrix(matrixData, rows, cols));
+        setIsResizeDialogOpen(false);
+      }
+    })
+  }, []);
 
 
   return (
@@ -210,7 +241,7 @@ const handleLoadEmpty = () => loadLayout(emptyLayoutTemplate, 8, 8);
       />
       <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
         <MatrixStudio
-          key={`${activeRows}-${activeCols}`}
+          key={`${activeRows}-${activeCols}-${forceUpdate}`}
           initialData={matrixData}
           rows={activeRows}
           cols={activeCols}
@@ -218,10 +249,11 @@ const handleLoadEmpty = () => loadLayout(emptyLayoutTemplate, 8, 8);
           deviceList={availableDevices}
           onFileDrop={handleFile} // <-- This now receives the raw File object
           onLoadEmpty={handleLoadEmpty}
-          onLoadSimple={handleLoadSimple}
           onLoadClick={handleLoadClick}
           onExportClick={() => setIsExportDialogOpen(true)}
           onResizeClick={() => setIsResizeDialogOpen(true)}
+          ledFxOrigin={ledFxOrigin}
+          onSaveAndReturn={handleSaveAndReturn}
         />
       </Box>
     </Box>
