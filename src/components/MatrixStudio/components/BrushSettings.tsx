@@ -54,11 +54,11 @@ export const BrushSettings = () => {
           // The Autocomplete needs to know how to get the label string from the object
           getOptionLabel={(option) => (typeof option === 'string' ? option : option.id)}
           value={selectedDevice || brushData.deviceId} // Show the object or the raw string
-          onChange={(event, newValue) => {
+          onChange={(_event, newValue) => {
             const newDeviceId = typeof newValue === 'string' ? newValue : newValue?.id || '';
             handleBrushChange('deviceId', newDeviceId);
           }}
-          onInputChange={(event, newInputValue) => {
+          onInputChange={(_event, newInputValue) => {
             handleBrushChange('deviceId', newInputValue);
           }}
           renderInput={(params) => (

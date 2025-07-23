@@ -11,7 +11,7 @@ export const MStudioControls = () => {
   // We need both read and write access for the ToggleButtonGroup
   const [activeTool, setActiveTool] = useAtom(activeToolAtom);
 
-  const handleToolChange = (event: React.MouseEvent<HTMLElement>, newTool: 'paint' | 'erase' | null) => {
+  const handleToolChange = (_event: React.MouseEvent<HTMLElement>, newTool: 'paint' | 'erase' | null) => {
     if (newTool !== null) {
       setActiveTool(newTool);
     }
