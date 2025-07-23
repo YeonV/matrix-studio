@@ -31,12 +31,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x' # Use a long-term support (LTS) version
+          node-version: '22.x' # Use a long-term support (LTS) version
           cache: 'yarn'
 
       # 4. Install dependencies
       - name: Install dependencies
-        run: yarn
+        run: yarn install --frozen-lockfile
 
       # 5. Build the application for production
       # The --base flag is critical for GitHub Pages deployments in Vite.
