@@ -1,0 +1,75 @@
+# .github/workflows/deploy.yml
+
+name: Build and Deploy to GitHub Pages
+
+# Controls when the workflow will run
+on:
+  # Runs on pushes to the main branch
+  push:
+    branches: ["main"]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This job builds the project
+  build:
+    name: Build Project
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Checkout the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Setup pnpm package manager
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8 # Or your preferred pnpm version
+
+      # 3. Setup Node.js environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x' # Use a long-term support (LTS) version
+          cache: 'pnpm'
+
+      # 4. Install dependencies
+      - name: Install dependencies
+        run: pnpm install
+
+      # 5. Build the application for production
+      # The --base flag is critical for GitHub Pages deployments in Vite.
+      # It ensures all asset paths are relative to your repository subdirectory.
+      - name: Build for GitHub Pages
+        run: pnpm build --base=/${{ github.event.repository.name }}/
+
+      # 6. Upload the build artifact for the deployment job
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Vite's default build output directory is 'dist'
+          path: './dist'
+
+  # This job deploys the project
+  deploy:
+    name: Deploy to GitHub Pages
+    # It needs the 'build' job to complete successfully first
+    needs: build
+    runs-on: ubuntu-latest
+    
+    # Grant permissions for the GITHUB_TOKEN to upload to GitHub Pages
+    permissions:
+      pages: write
+      id-token: write
+      
+    # Specifies the deployment environment
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      # The official action to deploy the artifact to GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
